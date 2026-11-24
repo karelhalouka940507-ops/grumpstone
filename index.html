@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Grumpstone</title>
+<meta name="theme-color" content="#1a120a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Grumpstone">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<!-- ÚVODNÍ OBRAZOVKA -->
+<section id="screen-title" class="screen active">
+  <div class="title-wrap">
+    <img id="title-img" class="title-img" alt="Grumpstone">
+    <div class="title-buttons">
+      <button id="btn-start" class="btn btn-gold btn-big">Začít hru</button>
+      <button id="btn-continue" class="btn btn-dark hidden">Pokračovat v uložené hře</button>
+      <button id="btn-rejoin" class="btn btn-gold hidden">🌐 Zpět do online hry</button>
+      <button id="btn-install" class="btn btn-dark hidden">📲 Nainstalovat na plochu</button>
+    </div>
+    <p class="title-note">Verze 0.20 · hot-seat · proti počítači · 🌐 online</p>
+  </div>
+</section>
+
+<!-- NASTAVENÍ HRY -->
+<section id="screen-setup" class="screen">
+  <div class="parchment setup-box">
+    <h1 class="ornate-h">Výprava se schází</h1>
+    <h3>Režim hry</h3>
+    <div id="game-mode" class="seg seg-mode"></div>
+    <div id="ai-setup" class="ai-setup"></div>
+    <h3 id="pc-h">Počet hráčů</h3>
+    <div id="player-count" class="seg"></div>
+    <div id="player-setup"></div>
+    <p class="hint">Každý hrdina začíná v Telgarionu: 10 životů, 5 zlaťáků, karma 0, level 1.</p>
+    <div class="setup-actions">
+      <button id="btn-back" class="btn btn-dark">Zpět</button>
+      <button id="btn-play" class="btn btn-gold btn-big">Vyrazit na výpravu</button>
+    </div>
+  </div>
+</section>
+
+<!-- HRA -->
+<section id="screen-game" class="screen">
+  <header id="topbar">
+    <div class="tb-left">
+      <span class="logo">GRUMPSTONE</span>
+      <span id="tb-round" class="pill">Kolo 1</span>
+    </div>
+    <div class="tb-mid">
+      <span id="tb-player" class="pill pill-player"></span>
+      <span id="tb-steps" class="pill pill-steps"></span>
+    </div>
+    <div class="tb-right">
+      <button id="btn-stay" class="btn btn-dark btn-sm" title="Zůstat na místě – spotřebuje pochod">Zůstat</button>
+      <button id="btn-end" class="btn btn-gold btn-sm">Ukončit tah</button>
+      <button id="btn-menu" class="btn btn-dark btn-sm" title="Nabídka">☰</button>
+    </div>
+  </header>
+  <div id="game-main">
+    <div id="board-wrap">
+     <div id="board-scroll">
+      <div id="board">
+        <img id="map-img" alt="Mapa">
+        <svg id="paths" viewBox="0 0 1600 895" preserveAspectRatio="none"></svg>
+        <div id="tokens"></div>
+        <div id="pawns"></div>
+      </div>
+     </div>
+      <div id="board-tools">
+        <button id="btn-zoom-in" class="btn btn-dark btn-round" title="Přiblížit">＋</button>
+        <button id="btn-zoom-out" class="btn btn-dark btn-round" title="Oddálit">－</button>
+        <button id="btn-labels" class="btn btn-dark btn-round" title="Názvy lokací">Aa</button>
+        <button id="btn-here" class="btn btn-dark btn-round" title="Kde stojím">◎</button>
+      </div>
+      <div id="toast"></div>
+    </div>
+    <aside id="side">
+      <button id="btn-trade" class="btn btn-dark btn-sm trade-btn" title="Obchod s ostatními hráči">🤝 Obchod mezi hráči</button>
+      <div id="players"></div>
+      <div class="parchment log-box">
+        <h3>Kronika výpravy</h3>
+        <ol id="log"></ol>
+      </div>
+    </aside>
+  </div>
+
+  <!-- PANEL LOKACE -->
+  <div id="panel-backdrop" class="hidden"></div>
+  <div id="panel" class="parchment hidden" role="dialog" aria-modal="true">
+    <button id="panel-close" class="panel-close" title="Zavřít">✕</button>
+    <div class="panel-head">
+      <div id="panel-icon" class="panel-icon"></div>
+      <div>
+        <h2 id="panel-name"></h2>
+        <div id="panel-type" class="panel-type"></div>
+      </div>
+    </div>
+    <p id="panel-desc" class="panel-desc"></p>
+    <div id="panel-status" class="panel-status"></div>
+    <div id="panel-result" class="event-box hidden"></div>
+    <div id="panel-cards" class="cards"></div>
+    <div id="panel-confirm-row" class="confirm-row">
+      <button id="btn-confirm" class="btn-tick" disabled title="Chci použít schopnost lokace">✔</button>
+      <span id="confirm-label">Chci použít schopnost lokace</span>
+    </div>
+    <div id="panel-actions" class="panel-actions"></div>
+  </div>
+
+  <!-- NPC KARTA – fáze na konci tahu -->
+  <div id="npc" class="npc hidden" role="dialog" aria-label="Setkání s NPC">
+    <div class="npc-box parchment">
+      <button id="npc-help-btn" class="btn btn-dark btn-round npc-help-btn" title="Jak fungují NPC karty">?</button>
+      <div class="npc-art"><img id="npc-img" alt="" title="Klepnutím zvětšíš / zmenšíš kartu"></div>
+      <div class="npc-body">
+        <div class="npc-phase">🃏 Fáze NPC karty · <span id="npc-who"></span></div>
+        <h2 id="npc-name"></h2>
+        <div id="npc-title" class="npc-title"></div>
+        <p id="npc-story" class="npc-story"></p>
+        <div id="npc-special" class="npc-special hidden"></div>
+        <div id="npc-choices" class="npc-choices"></div>
+        <div id="npc-stage" class="npc-stage"></div>
+        <button id="npc-continue" class="btn btn-gold btn-big hidden">Pokračovat – další hráč ➜</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- KARTA PŘEDMĚTU -->
+  <div id="combat" class="help hidden" role="dialog" aria-label="Souboj"><div id="combat-body" class="cb-box parchment"></div></div>
+  <div id="item-modal" class="help hidden" role="dialog" aria-label="Předmět"><div id="item-body" class="item-box parchment"></div></div>
+  <!-- OBCHOD -->
+  <div id="trade" class="help hidden" role="dialog" aria-label="Obchod"><div class="help-box parchment"><button id="trade-close" class="btn btn-dark btn-round npc-help-btn" title="Zavřít">✕</button><div id="trade-body"></div></div></div>
+
+  <!-- NÁPOVĚDA -->
+  <div id="help" class="help hidden" role="dialog" aria-label="Nápověda">
+    <div class="help-box parchment">
+      <h3>Jak se hraje tah</h3>
+      <ol>
+        <li><b>Pochody:</b> máš 2 pochody – přesun do sousední lokace, nebo „Zůstat“. S mountem +1 krok navíc (na 3. lokaci bez akce). <b>Finn &amp; Bruine a Mordraga</b> jsou sami svým mountem – 3 lokace od začátku, mounta si nekupují.</li>
+        <li><b>☀️/🌙 Olgrich – denní světlo:</b> sudá kola (2, 4, 6…) jsou pro upíra <b>den</b>, lichá <b>noc</b> (hraje normálně). Ve dne ho cesta (pochod, plavba lodí, mount i nouzový stop) stojí <b>1 ❤️</b> (jednou za kolo, nejméně na 1). Nebo hned na začátku tahu zvolí <b>☀️ Přečkat den</b> (Zůstat): vzdá se pochodů, nic neztratí a smí v té lokaci – i tam, kde tah začal – využít <b>2 různé schopnosti</b>.</li>
+        <li><b>⛵ Moře:</b> mořské lokace mimo pevninu jsou bez lodi neprůchodné. V přístavu nebo na moři klikni na žeton lodi – <b>Elfingar</b> (dobří a neutrální) nebo <b>Crimson Banshee</b> (zlí a neutrální). Za <b>1 🪙</b> jsi na palubě celé kolo a <b>na kteroukoli mořskou lokaci</b> se dostaneš jedním pochodem; další kolo platíš znovu. Bez peněz: <b>nouzový stop</b> na obchodní lodi – jen 1 sousední mořská lokace a zdržení (v tahu jen jedna akce lokace).</li>
+        <li><b>🐸🌊 Plavání – Velebníček Vodička:</b> rybí kněz smí na Elfingar jako ostatní dobří hrdinové (1 🪙, celé kolo, kamkoli po moři jedním pochodem). Navíc umí <b>plavat zdarma a bez lodi</b>: každým pochodem může přeplavat do <b>jedné sousední lokace přes vodu</b> (po mořské cestě – mořské lokace, ostrovy jen pro lodě, přístavy). Je to obyčejný pochod, ne skok lodí kamkoli; krok navíc s mountem platí i pro plavání (akci lokace na něm, jako vždy, nevyužije). Na mapě má takové lokace modře pulzující se značkou 🐸🌊.</li>
+        <li><b>🕳️ Podzemní chodby – Chadimpetro:</b> obří krtek se jedním pochodem prokope <b>až o 2 lokace</b> po souši (2 pochody = až 4 lokace za kolo). Akci nebo setkání má <b>jen cílová lokace</b> každého pochodu – lokace, pod kterou podkopal, se nevyhodnocuje. <b>Bez mounta</b> („Krtek nejezdí, krtek kope“), <b>bez vody</b>: žádná loď (Elfingar ani Crimson Banshee), žádné moře, ostrovy jen po moři ani nouzové stopování – „nemá půdu pod nohama, ztrácí hlavu“. Přístavy po souši jsou v pořádku. Ve městech ho nepustí do <b>arény</b> ani do <b>herny</b>. Každé kolo nasbírá <b>🪨 1 pytel uhlí</b> (vlastní počítadlo, nezabírá brašnu); uhlí smí prodat <b>jen on, na Tržišti za 4Z/pytel</b>.</li>
+        <li><b>🌹 Everett – Černá růže</b> (zlý diplomat, Charisma 3): jako ostatní charismatici je <b>slabý mimo město a vesnici</b> – jeho manipulativní karty (Falešný úsměv, Medový jazyk, Štěněcí nevinnost) působí jen ve městě nebo vesnici, v divočině mají jen hodnoty útoku a obrany. Štěněcí nevinnost nefunguje na tvory bez emocí (Mrtvý rytíř jezdec, Houbový golem, Písečný had, Plazí strážce svatyně, Mrtví strážci). <b>🎲 Podvodník u kostek:</b> v herně má vždy <b>+1 k hodu</b>; když vyhraje, získá <b>6Z</b> (místo 5Z), ale dostane přes hubu – <b>−2 ❤️</b> (nikdy pod 1). Prohra jako obvykle.</li>
+        <li><b>Akce lokace:</b> po pochodu můžeš jednou využít schopnost lokace (zelené ✔). Na lokaci, kde jsi tah začal, ji nevyužiješ. Města mají 5–6 schopností, vesnice 4–5.</li>
+        <li><b>NPC karta:</b> po pochodech a akcích (tlačítko „Ukončit tah“ nebo automaticky) si táhneš náhodnou NPC kartu.</li>
+      </ol>
+      <h3>Statistiky a trénink podle třídy</h3>
+      <ul>
+        <li>Statistiky: <b>Boj</b>, <b>Obrana</b>, <b>Inteligence</b>, <b>Charisma</b> (výchozí hodnoty jsou zatím <b>prozatímní</b>).</li>
+        <li>Každý hrdina má <b>jednu hlavní vlastnost</b> (★ na kartě; Finn &amp; Bruine tři: Boj, Inteligenci a Charisma). Jen tu lze <b>placeně trénovat</b> – 3Z za +1, <b>jen +1 vlastnost za level</b> (jeden trénink v levelu). Vzácně (10 %) přidá +1 i splněný cestovní úkol.</li>
+        <li><b>Vedlejší vlastnosti</b> rostou samy: <b>+1 každé 2 levely</b> (na levelu 3, 5, 7…).</li>
+        <li><b>Tankové</b> (Conrad, Krag'thar, Goro) trénují <b>Obranu</b> u <b>zbrojmistra</b> – z Obrany staví i útok.</li>
+        <li><b>Assassini</b> (Thorne, Silvia) a <b>lovec</b> Hargan trénují <b>Boj</b> u <b>zbrojmistra</b>.</li>
+        <li><b>Diplomaté</b> (Elara, Piddlewick, Everett) <b>Charisma</b> na <b>společenských událostech</b>.</li>
+        <li><b>Kouzelníci</b> (Josepho, Igiorio, Zara, Houbík, kněz Velebníček Vodička) <b>Inteligenci</b> v <b>knihovně</b>.</li>
+        <li><b>Olgrich Vottanar</b> (upír) má dvě hlavní vlastnosti: <b>Inteligenci</b> (knihovna) i <b>Charisma</b> (společenská událost) – stejně jako Finn jeden placený trénink za level.</li>
+        <li><b>Chadimpetro</b> (bojovník, obří krtek horník) má dvě hlavní vlastnosti: <b>Boj</b> i <b>Obranu</b> (obě 3, trénink u Zbrojmistra; jeden placený trénink za level). Útočí silnější z nich (při rovnosti Bojem).</li>
+        <li><b>Finn &amp; Bruine</b> (hybrid): <b>Boj</b> u zbrojmistra, <b>Inteligenci</b> v knihovně a <b>Charisma</b> na společenských událostech (útočí silnější z Boje/Obrany). Aréna netrénuje – je to jen souboj o zlato.</li>
+        <li>Co tvoje třída nesmí, je na kartě schopnosti označeno 🚫 i s důvodem.</li>
+      </ul>
+      <h3>Karma</h3>
+      <ul><li><b>Zpověď</b> = +1 karma (náprava). <b>Mučírna</b> = −1 karma – pro záporáky, karma může jít do mínusu. Dobrý hrdina do mučírny nevkročí. Karmu ubírá i Černý trh a některé NPC volby.</li></ul>
+      <h3>NPC karty</h3>
+      <ul>
+        <li>Balíček má 131 karet (120 postav + 11 bossů). Karta se neopakuje, dokud se balíček nevyčerpá – pak se zamíchá znovu.</li>
+        <li>Vyber způsob řešení: <b>⚔️ Boj</b> (tankové s Obranou, Finn se silnější z Boje/Obrany), <b>💬 Charisma</b>, nebo <b>🔮 Magie</b> (hází se s Inteligencí).</li>
+        <li><b>🎲 Hod kostkou:</b> d6 + statistika musí dát aspoň <b>5 + level</b> (u bosse <b>7 + level</b>). Šestka uspěje vždy, <b>1–2 vždy selže</b>. Požehnání ze svatyně přidá +1.</li>
+        <li><b>🤔 Rozhodnutí:</b> vybereš jednu ze dvou možností – co způsobí, uvidíš až potom.</li>
+        <li>Úspěch: <b>+1 🪙 a +2 zkušenosti</b>; napůl: +1 🪙, +1 zk.; neúspěch: −2 ❤️ při hodu (−1 při rozhodnutí), u bosse víc.</li>
+        <li><b>Grumpstone body</b> jen výjimečně: boss podle stupně (<b>I = 1, II = 2, III = 3 body</b>), boss z NPC karty a několik významných cestovních úkolů.</li>
+        <li><b>🏁 Konec hry – 30 Grumpstone bodů:</b> kdo dosáhne <b>30 GB</b>, dostane <b>Finální výzvu</b>. Na začátku svého dalšího tahu (poslední kolo) musí vyzvat jiného hráče na souboj – nemusí za ním cestovat a nezáleží na přesvědčení. Souboj je jako běžný souboj hrdinů (1 náhodná karta každý), ale <b>vyzyvatel útočí první</b>: srazí-li soupeře na 0, soupeř už neodpoví; při stejném zranění vyhrává vyzyvatel; když nikdo nezasáhne, následuje další výměna (nejvýš 3, pak se obránce ubránil). <b>Výhra = vítězství v celé hře.</b> Prohra = obránce sebere vyzyvateli <b>5 GB</b> (z 30 zbude 25) – a má-li teď sám 30, má Finální výzvu on. Sólová hra: není koho vyzvat, 30 GB = vítězství. Obránce na 0 životech se k souboji zvedne s 1 ❤️.</li>
+        <li><b>Zkušenosti:</b> každých 10 = další level (level 2 při 10, level 3 při 20…). Nejvyšší je <b>level 10</b> – pak se zkušenosti nesbírají (MAX).</li>
+        <li>Klesneš-li na 0 ❤️, na začátku dalšího tahu odpočíváš.</li>
+      </ul>
+      <h3>🎲 Kostka</h3>
+      <ul><li>Kde se hází (hledání, NPC úkoly, aréna, herna, později souboje), objeví se černá runová kostka – <b>klepni na ni</b> a hoď. Hod už nejde vrátit.</li></ul>
+      <h3>🔎 Prohledávání divočiny (Prozkoumat)</h3>
+      <ul>
+        <li>Hod d6 + <b>Specializace</b>: <b>1</b> = nezdar (čarodějnice, bandité, vlci, jáma…), <b>2–3</b> = setkání (často druhý hod nebo volba), <b>4</b> = drobnost, <b>5</b> = nález (zlato, byliny, svitek dovednosti), <b>6+</b> = velký nález – výjimečně <b>předmět</b> podle levelu (L1–3 hlavně základní, L4–5 i střední, L6+ i epické).</li>
+        <li><b>Stavy</b> na kartě hráče: 👁️ Prokletí (příští kolo 1 pochod), 🤢 Otrava a 🩹 Nákaza (−1 život na začátku tahu, nejméně na 1), 😱 Strach (−1 k příštímu hodu).</li>
+      </ul>
+      <h3>🧰 Předměty</h3>
+      <ul>
+        <li><b style="color:#b8860b">Základní</b> (žlutá) +1 hlavní vlastnost, 3Z · <b style="color:#d2691e">Střední</b> (oranžová) +1 hlavní +1 Specializace, 10Z (v obchodě od levelu 3) · <b style="color:#7b3fb8">Epický</b> (fialová) +2 hlavní vlastnost, 20Z (od levelu 6). Nabídka kovárny, tržiště i černého trhu se mění každé kolo; klikni na předmět a uvidíš jeho kartu a zda je kompatibilní s tvým hrdinou.</li>
+        <li>Hlavní vlastnost: tankové Obrana, assassini a lovec Boj, diplomaté Charisma, kouzelníci Inteligence, Olgrich Inteligence nebo Charisma (nosí magické i diplomatické předměty), Chadimpetro (nosí tankové, assassinské i lovecké předměty vč. štítů) Obrana z tankových a Boj z útočných, Finn &amp; Bruine (nosí i diplomatické a magické předměty) Charisma, Inteligence, nebo Boj/Obrana – podle předmětu. Předměty dohromady dají nejvýš <b>+2</b>.</li>
+        <li><b>Specializace</b> (prozatímní): každý bod = +1 k hodům v NPC úkolech a při hledání.</li>
+        <li><b>4 místa výbavy</b> (🧍 nasazeno) + <b>4 místa v brašně</b> (🎒). Bonusy dávají jen nasazené předměty. Co nasadíš, volíš sám – tlačítky ⬆ (nasadit / vyměnit) a ⬇ (do brašny) na kartě hráče, nebo na kartě předmětu.</li>
+        <li>Nosit lze jen kompatibilní předmět (na kartě „Mohou nosit“). <b>Stejný typ jen jednou</b>: ne dvoje boty, dvoje rukavice, dva pásy, dva prsteny, dva amulety, dva štíty… (prsten a amulet jsou různé typy).</li>
+        <li><b>Ruce:</b> jedna obouruční zbraň (luk, kuše, kladivo, dvojčata dýk…), <b>nebo</b> jednoruční zbraň + štít/kniha/fetiš, <b>nebo</b> dvě jednoruční zbraně. Se štítem jen jednoruční zbraň. Talisman (Lebka) ruce nezabírá. Tankové nesmí luky a kuše.</li>
+        <li>Když je všechno plné a něco najdeš nebo koupíš, musíš ho <b>prodat</b>, <b>zahodit</b>, nebo jím <b>nahradit</b> jiný předmět.</li>
+        <li><b>Kovárna</b> prodává <b>jen základní (žluté)</b> předměty za 3Z. Střední a epické získáš jen hledáním, z úkolů a bossů, obchodem s hráči, nebo na <b>Černém trhu</b> o 1Z levněji (−1 karma). <b>Výkup:</b> žlutý 3Z, oranžový 5Z, fialový 10Z – nasazený i z brašny, v sídle s tržištěm, kovárnou nebo černým trhem (tlačítko 💰 na kartě předmětu, nestojí akci).</li>
+        <li>🧪 <b>Léčivý lektvar</b> (Alchymista, 2Z): +4 životy a vyléčí Otravu i Nákazu. Pije se <b>jen v boji</b>, nejvýš 1 za boj; nosit lze nejvýš 2. (Boj zatím ve hře není – lektvary se zatím jen sbírají.)</li>
+      </ul>
+      <h3>⚔️ Souboje</h3>
+      <ul>
+        <li><b>Bossové</b> (36 bossů, úrovně I–III; Starosta Bruclík a Lord Firebeard jdou porazit jen Charismou; rybí bossové Rybák Pulec (I, Rybníky) a King Rybák (III, Vodníkova Tůň) – Bojem i Magií) na začátku na mapě nejsou. <b>Po skončení 1. kola</b> vstoupí do hry <b>jeden boss za každého hráče</b> – vybraný podle levelu hrdiny (L1–2 úroveň I, L3–5 úroveň II, L6+ úroveň III) a jeho zaměření (bojovníci ⚔️, kouzelníci 🔮, diplomaté 💬; Finn &amp; Bruine jakýkoli). Na mapě je boss jako kulatý žeton s obrázkem. Když ho někdo porazí, na začátku dalšího kola přijde náhradník podle stejného pravidla. <b>Návrat bossů:</b> poražený boss se po 8 kolech vrátí na své místo s plnými štíty i životy a znovu s plnou odměnou (GB, zlato, zkušenosti, šance na předmět); na mapě do té doby svítí značka ↻ s číslem kola. Boss, který utekl, se nevrací.</li>
+        <li>Bossové mají <b>štíty</b> a <b>životy</b> – zranění jde nejdřív do štítů, pak do životů. Souboj je místo schopnosti lokace (karta 👹 v panelu místa).</li>
+        <li>Boj trvá <b>3 kola</b>. Na začátku si náhodně lízneš 3 ze svých 6 bojových karet (karty „1× za celou hru“ po použití zmizí), v každém kole hraješ jednu.</li>
+        <li><b>Tvůj útok</b> = útočná vlastnost + útok karty + 🎲 proti obraně bosse v daném kole; o kolik ji překročíš, tolik zranění. Útočná vlastnost: kouzelníci <b>Inteligence</b>, Olgrich proti bossovi s magickým zaměřením <b>Inteligence</b>, s charismatickým <b>Charisma</b>, jinak ta vyšší (při rovnosti Charisma), Elara a Piddlewick <b>Charisma</b>, tankové a Finn <b>Obrana</b>, ostatní <b>Boj</b>. Když tvůj typ odpovídá zaměření bosse, +1.</li>
+        <li><b>Útok bosse</b> = jeho útok v daném kole + 🎲 proti tvé <b>Obraně + obraně karty</b>; rozdíl jsou ztracené životy. Efekty karet a zvláštnosti bossů se vypisují v deníku boje.</li>
+        <li>V boji můžeš vypít 1 léčivý lektvar (+4 ❤️). Když boss 3 kola přežije, zůstane zraněný – můžeš se vrátit a dorazit ho. Když padneš, platí pravidla pro 0 životů.</li>
+        <li>Výhra: Grumpstone body, zlaťáky, zkušenosti a předmět podle úrovně bosse (I: 1 GB, 3 🪙, 3 zk., základní · II: 2 GB, 5 🪙, 5 zk., střední · III: 3 GB, 8 🪙, 8 zk., epický).</li>
+        <li><b>Souboj hrdinů</b> na stejném poli: každý 1 náhodná karta, jedna výměna úderů. Spojenci (dva dobří nebo dva zlí) spolu nebojují. Vítěz +1 zk. a vezme poraženému 1 🪙.</li>
+      </ul>
+      <h3>🤝 Obchod mezi hráči</h3>
+      <ul><li>Během svého tahu můžeš obchodovat s kýmkoli (nemusíte stát na stejném místě). Kupující nabídne zlaťáky (nejvýš <b>2× cena z karty</b>: žlutý 6Z, oranžový 10Z, fialový 20Z), prodávající předání potvrdí. Kupující musí mít volné místo. Dobří a zlí spolu obchodovat nemohou; neutrální obchodují se všemi.</li></ul>
+      <h3>📜 Cestovní úkoly</h3>
+      <ul>
+        <li>U úkolů „někam dojdi“ ti úspěch nabídne volbu: <b>vzít odměnu hned</b>, nebo <b>přijmout úkol</b> – záloha +1 🪙 +1 zk. a po příchodu na cílové místo větší odměna (+2 🪙 a +2 zk. navíc, u významných úkolů i Grumpstone bod).</li>
+        <li>Úkoly zadává i <b>Cech dobrodruhů</b> (doručení zásilky). Max. 3 úkoly najednou, jsou nepovinné. Cíl je na mapě označen 📜 a v kartě hráče.</li>
+      </ul>
+      <h3>🤖 Počítačoví soupeři</h3>
+      <ul>
+        <li>Režim <b>„1 hráč + počítač“</b>: vyber si hrdinu a 1–5 soupeřů, za které hraje počítač (celkem až 6 hráčů). Soupeři dostanou náhodné různé hrdiny – v jejich záložce je můžeš změnit. Zaškrtávátkem <b>🤖 Hraje počítač</b> jde počítač přidat i do hry více lidí.</li>
+        <li><b>Normální</b> obtížnost hraje opatrně a trochu náhodně; <b>Těžká</b> lépe odhaduje souboje, jde tvrdě po Grumpstone bodech, krade bossy vedoucímu hráči a vyzývá ho na souboj.</li>
+        <li>Počítač dodržuje všechna pravidla hrdinů (tunely, plavání, den/noc, lodě, mounti), sám řeší NPC karty, úkoly, finální výzvu. Tah se ukazuje s krátkými prodlevami a řádky 🤖 v kronice; tlačítkem <b>⏩</b> ho zrychlíš.</li>
+      </ul>
+      <button id="help-close" class="btn btn-gold">Rozumím</button>
+    </div>
+  </div>
+
+  <!-- NABÍDKA -->
+  <div id="menu" class="parchment hidden">
+    <h3>Nabídka</h3>
+    <button id="menu-new" class="btn btn-dark">Nová hra</button>
+    <button id="menu-title" class="btn btn-dark">Úvodní obrazovka</button>
+    <button id="menu-help" class="btn btn-dark">Nápověda / pravidla</button>
+    <button id="menu-npc" class="btn btn-dark">NPC karty: zapnuto</button>
+    <button id="menu-install" class="btn btn-dark hidden">📲 Nainstalovat hru</button>
+    <button id="menu-close" class="btn btn-gold">Zavřít</button>
+  </div>
+</section>
+
+<script src="peerjs.min.js"></script>
+<script src="net_config.js"></script>
+<script src="pwa.js"></script>
+<script src="places.js"></script>
+<script src="npc.js"></script>
+<script src="items.js"></script>
+<script src="combat_data.js"></script>
+<script src="combat.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
