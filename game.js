@@ -2322,6 +2322,7 @@ async function netFetchTurn() { // volitelné: vlastní bezplatný účet metere
 function netPeerOpts() {
   const o = { debug: 0, config: { iceServers: netIce() } }, ph = netQuery().get('peerhost'); // ?peerhost=localhost:9000 = vlastní PeerJS server (testy)
   if (ph) { const [h, pt] = ph.split(':'); Object.assign(o, { host: h, port: +pt || 9000, path: '/', secure: false }); }
+  if (netQuery().get('ice') === 'blocked') o.config = { iceServers: [], iceTransportPolicy: 'relay' }; // test: přímé spojení nikdy nevznikne
   return o;
 }
 const netNewCode = () => 'GRUM-' + String(1000 + rnd(9000));
@@ -2335,37 +2336,43 @@ function netLoadHost() { try { return JSON.parse(localStorage.getItem('grumpston
 function netSaveGuest(o) { try { localStorage.setItem('grumpstone_net', JSON.stringify(o)); } catch (e) {} }
 function netLoadGuest() { try { return JSON.parse(localStorage.getItem('grumpstone_net') || 'null'); } catch (e) { return null; } }
 function netLeave() {
-  NET.left = true; clearTimeout(NET.retryT);
+  NET.left = true; clearTimeout(NET.retryT); clearTimeout(NET.relayT); clearTimeout(NET.failT); netRelayStop(); netWakeLock(false);
+  Object.assign(NET, { welcomed: false, welcomedVia: null, via: null, relayOpen: false, p2pOpen: false });
   try { if (NET.peer) NET.peer.destroy(); } catch (e) {}
   Object.assign(NET, { role: null, peer: null, conns: {}, seatOf: new Map(), hostConn: null, lobby: false, status: '', onList: [] });
   document.body.classList.remove('not-mine', 'net-on'); const b = $('net-bar'); if (b) b.classList.add('hidden');
 }
 // ---------- HOSTITEL ----------
 async function netHost(resume) {
-  if (typeof Peer === 'undefined') { netStatus('❌ Online knihovna se nenačetla (jsi offline?).'); return; }
   netLeave(); NET.left = false; NET.lobby = typeof resume !== 'string'; await netFetchTurn();
   const saved = netLoadHost();
-  NET.role = 'host'; NET.mySeat = 0; NET.code = typeof resume === 'string' ? resume : (resume && saved ? saved.code : netNewCode());
+  NET.role = 'host'; NET.mySeat = 0; NET.gids = {}; NET.code = typeof resume === 'string' ? resume : (resume && saved ? saved.code : netNewCode());
   NET.tokens = resume && saved && saved.code === NET.code ? (saved.tokens || {}) : {};
   document.body.classList.add('net-on');
-  let tries = 0;
+  let tries = 0; netWakeLock(true);
+  netRelayHost(); // záložní spojení přes server běží vždy souběžně
   const open = () => {
-    if (NET.role !== 'host') return;
+    if (NET.role !== 'host' || typeof Peer === 'undefined' || netMode() === 'relay') return;
     const peer = new Peer(netPeerId(NET.code), netPeerOpts()); NET.peer = peer;
     netStatus(resume ? `⏳ Obnovuji místnost ${NET.code}…` : '⏳ Zakládám místnost…');
-    peer.on('open', () => { tries = 0; netSaveHost(); netStatus(`✅ Místnost <b>${NET.code}</b> je otevřená – pošli kód nebo odkaz přátelům.`); if (netInGame()) netBroadcast(true); else netRenderSetup(); });
+    peer.on('open', () => { tries = 0; NET.p2pOpen = true; netHostReady(); });
     peer.on('connection', c => netHostConn(c));
     peer.on('disconnected', () => { if (NET.peer === peer && !peer.destroyed && NET.role === 'host') setTimeout(() => { try { peer.reconnect(); } catch (x) {} }, 2500); });
     peer.on('error', e => {
       if (NET.peer !== peer) return;
       if (e.type === 'unavailable-id') { try { peer.destroy(); } catch (x) {}
-        if (!resume && !netInGame()) { NET.code = netNewCode(); NET.tokens = {}; return setTimeout(open, 200); }
+        if (!resume && !netInGame()) { NET.code = netNewCode(); NET.tokens = {}; NET.relayOpen = false; netRelayHost(); return setTimeout(open, 200); }
         if (tries++ < 40) { netStatus(`⏳ Server ještě drží kód ${NET.code} (po obnovení stránky) – zkouším znovu…`); return setTimeout(open, 3000); } }
-      if (e.type === 'network' || e.type === 'server-error' || e.type === 'socket-error' || e.type === 'socket-closed') { netStatus('⚠️ Spojení se serverem pro párování vypadlo – zkouším znovu…'); try { peer.destroy(); } catch (x) {} return setTimeout(open, 4000); }
-      netStatus('⚠️ ' + (e.type || e));
+      if (e.type === 'network' || e.type === 'server-error' || e.type === 'socket-error' || e.type === 'socket-closed') { NET.p2pOpen = false; if (!NET.relayOpen) netStatus('⚠️ Spojení se serverem pro párování vypadlo – zkouším znovu…'); try { peer.destroy(); } catch (x) {} return setTimeout(open, 4000); }
+      if (!NET.relayOpen) netStatus('⚠️ ' + (e.type || e));
     });
   };
   open();
+}
+function netHostReady() {
+  if (!isHostNet()) return; netSaveHost();
+  netStatus(`✅ Místnost <b>${NET.code}</b> je otevřená – pošli kód nebo odkaz přátelům.`);
+  if (netInGame()) netBroadcast(true); else netRenderSetup();
 }
 function netHostConn(c) {
   c.on('data', m => { try { netHostMsg(c, m); } catch (e) { console.error(e); } });
@@ -2384,7 +2391,9 @@ function netHostMsg(c, m) {
 }
 function netHostHello(c, m) {
   const name = String(m.name || '').trim().slice(0, 18);
-  const seat = m.token ? Object.keys(NET.tokens).map(Number).find(i => NET.tokens[i] === m.token) : undefined;
+  NET.gids = NET.gids || {};
+  let seat = m.token ? Object.keys(NET.tokens).map(Number).find(i => NET.tokens[i] === m.token) : undefined;
+  if (seat == null && m.gid && NET.gids[m.gid] != null) seat = NET.gids[m.gid]; // stejné zařízení, jiná cesta (přímo / přes server)
   if (netInGame()) { // hra běží – jen návrat na vlastní místo
     if (seat == null || !S.players[seat]) return netSend(c, { t: 'reject', msg: 'Hra už běží – připojit se může jen hráč, který v ní sedí (ze stejného zařízení).' });
     netBind(c, seat); const p = S.players[seat];
@@ -2401,7 +2410,7 @@ function netHostHello(c, m) {
     setup.players.push(pl); setup.n = setup.players.length;
     const i = setup.players.length - 1; NET.tokens[i] = netToken(); netBind(c, i);
   }
-  const i = NET.seatOf.get(c);
+  const i = NET.seatOf.get(c); if (m.gid) NET.gids[String(m.gid)] = i;
   netSend(c, { t: 'welcome', seat: i, token: NET.tokens[i], code: NET.code, started: false });
   netSaveHost(); netLobbyBroadcast();
 }
@@ -2421,6 +2430,7 @@ function netRemoveSeat(i) { // jen počítačová místa
   setup.players.splice(i, 1); setup.n = setup.players.length;
   const t = {}, c = {}; Object.keys(NET.tokens).map(Number).forEach(k => { if (k !== i) t[k > i ? k - 1 : k] = NET.tokens[k]; });
   Object.keys(NET.conns).map(Number).forEach(k => { if (k !== i) { const cc = NET.conns[k], nk = k > i ? k - 1 : k; c[nk] = cc; NET.seatOf.set(cc, nk); } });
+  Object.keys(NET.gids || {}).forEach(g => { if (NET.gids[g] === i) delete NET.gids[g]; else if (NET.gids[g] > i) NET.gids[g]--; });
   NET.tokens = t; NET.conns = c; setupTab = Math.min(setupTab, setup.n - 1); netSaveHost(); netLobbyBroadcast();
 }
 function netAddAI() {
@@ -2464,32 +2474,37 @@ function netHandover(i) {
 // ---------- HOST (připojený hráč) ----------
 async function netJoin(code, name) {
   code = netNorm(code); if (!code) { netStatus('❌ Zadej kód hry, např. GRUM-4821.'); return; }
-  if (typeof Peer === 'undefined') { netStatus('❌ Online knihovna se nenačetla (jsi offline?).'); return; }
   netLeave(); NET.left = false; await netFetchTurn();
-  NET.role = 'guest'; NET.code = code; NET.name = (name || '').trim().slice(0, 18); NET.retry = 0; document.body.classList.add('net-on');
-  netStatus(`⏳ Připojuji se ke hře ${code}…`); netRenderSetup();
+  NET.role = 'guest'; NET.code = code; NET.name = (name || '').trim().slice(0, 18); NET.retry = 0; NET.via = 'p2p'; document.body.classList.add('net-on');
+  netStatus(`⏳ Připojuji se ke hře ${code}…`); netRenderSetup(); netWakeLock(true);
+  NET.failT = setTimeout(() => { if (isGuest() && !NET.welcomed) netStatus(`❌ Nepodařilo se spojit s hostitelem hry ${code}. Zkontroluj kód a ať má hostitel hru otevřenou na obrazovce (ne na pozadí). <button class="btn btn-gold btn-sm" id="net-retry">🔄 Zkusit znovu</button>`); }, 20000);
+  if (typeof Peer === 'undefined' || netMode() === 'relay') return netRelayGuest();
+  NET.relayT = setTimeout(() => { if (isGuest() && !NET.welcomed) netRelayGuest(); }, 6000); // přímé spojení se do 6 s neotevřelo → přes server
   const peer = new Peer(netPeerOpts()); NET.peer = peer;
   peer.on('open', () => netConnect());
   peer.on('disconnected', () => { if (NET.peer === peer && !peer.destroyed && isGuest()) setTimeout(() => { try { peer.reconnect(); } catch (x) {} }, 2500); });
   peer.on('error', e => { if (NET.peer !== peer || !isGuest()) return;
+    if (netMode() !== 'p2p') { if (!NET.welcomed) netRelayGuest(); return; } // přímo to nejde → záložní spojení přes server
     if (e.type === 'peer-unavailable') { netStatus(`⏳ Hra ${code} zatím není online (hostitel ji musí mít otevřenou) – zkouším znovu…`); clearTimeout(NET.retryT); NET.retryT = setTimeout(netConnect, 4000); return; }
     netStatus('⚠️ ' + (e.type || e)); clearTimeout(NET.retryT); NET.retryT = setTimeout(() => { if (isGuest() && peer.destroyed) netJoin(code, NET.name); }, 5000); });
 }
 function netConnect() {
-  if (!isGuest() || !NET.peer || NET.peer.destroyed || NET.left) return;
+  if (!isGuest() || !NET.peer || NET.peer.destroyed || NET.left || NET.via === 'relay') return;
   if (NET.peer.disconnected) { try { NET.peer.reconnect(); } catch (e) {} }
   const saved = netLoadGuest(), token = saved && saved.code === NET.code ? saved.token : null;
   const c = NET.peer.connect(netPeerId(NET.code), { reliable: true }); NET.hostConn = c;
-  c.on('open', () => { NET.retry = 0; c.send({ t: 'hello', name: NET.name || (saved && saved.name) || '', token, v: NET_PROTO }); });
+  c.on('open', () => { NET.retry = 0; c.send({ t: 'hello', name: NET.name || (saved && saved.name) || '', token, gid: NR.id, v: NET_PROTO }); });
   c.on('data', m => { try { netGuestMsg(m); } catch (e) { console.error(e); } });
-  c.on('close', () => { if (NET.hostConn !== c || !isGuest() || NET.left) return; NET.hostConn = null;
-    netStatus('⚠️ Spojení s hostitelem přerušeno – připojuji znovu…'); clearTimeout(NET.retryT); NET.retryT = setTimeout(netConnect, 3000); });
+  c.on('close', () => { if (NET.hostConn !== c || !isGuest() || NET.left || NET.via === 'relay') return; NET.hostConn = null;
+    netStatus('⚠️ Spojení s hostitelem přerušeno – připojuji znovu…'); clearTimeout(NET.retryT); NET.retryT = setTimeout(netConnect, 3000);
+    if (netMode() !== 'p2p') { clearTimeout(NET.relayT); NET.relayT = setTimeout(() => { if (isGuest() && (!NET.hostConn || !NET.hostConn.open)) netRelayGuest(); }, 6000); } });
   c.on('error', () => {});
 }
 function netGuestMsg(m) {
   if (!m || typeof m !== 'object') return;
-  if (m.t === 'welcome') { NET.mySeat = m.seat; netSaveGuest({ code: m.code, token: m.token, seat: m.seat, name: NET.name });
-    netStatus(m.started ? `✅ Zpět ve hře ${m.code}.` : `✅ Připojeno ke hře <b>${m.code}</b> – vyber si hrdinu a počkej na start.`); return; }
+  if (m.t === 'welcome') { NET.mySeat = m.seat; NET.welcomed = true; NET.welcomedVia = NET.hostConn; clearTimeout(NET.failT); clearTimeout(NET.relayT);
+    netSaveGuest({ code: m.code, token: m.token, seat: m.seat, name: NET.name });
+    netStatus(`${netViaLabel()} · ` + (m.started ? `✅ Zpět ve hře ${m.code}.` : `ke hře <b>${m.code}</b> – vyber si hrdinu a počkej na start.`)); netRenderSetup(); return; }
   if (m.t === 'reject') { netStatus('❌ ' + m.msg); const keep = NET.code; netLeave(); NET.code = keep; netStatus('❌ ' + m.msg); netRenderSetup(); return; }
   if (m.t === 'deny') { toast('⏳ ' + m.msg); return; }
   if (m.t === 'lobby') { NET.mySeat = m.you; const L = m.lobby;
@@ -2548,7 +2563,7 @@ function netBar() {
   const p = cur(), off = isHostNet() ? (p.remote && !NET.conns[S.cur]) : NET.onList[S.cur] === false;
   const conn = isGuest() && (!NET.hostConn || !NET.hostConn.open);
   b.classList.remove('hidden'); b.classList.toggle('mine', myTurnNet()); b.classList.toggle('warn', conn);
-  b.innerHTML = `<span class="nb-code" title="Kód online hry">🌐 ${NET.code || ''}</span>` +
+  b.innerHTML = `<span class="nb-code" title="Kód online hry">${isGuest() && NET.via === 'relay' ? '🛰' : '🌐'} ${NET.code || ''}</span>` +
     (conn ? `<span>${NET.status || '⚠️ Připojuji…'}</span>` : S.over ? '<span>🏁 Hra skončila</span>' : myTurnNet() ? '<span class="nb-turn">🎲 <b>Jsi na tahu!</b></span>' :
       isAI(p) ? `<span>🤖 Hraje počítač: <b>${p.name}</b></span>` : `<span>⏳ Čeká se na hráče <b>${p.name}</b>${off ? ' <i>(odpojen)</i>' : ''}</span>`);
 }
@@ -2582,9 +2597,9 @@ function netSetupPanel(ab) {
   box.innerHTML = `<div class="net-room"><div class="net-room-l">Kód hry</div><div class="net-room-code" id="net-room-code">${NET.code || '…'}</div>
     ${isHostNet() ? `<div class="net-link" id="net-link">${link}</div><div class="net-btns"><button class="btn btn-gold btn-sm" id="net-copy">📋 Kopírovat odkaz</button>${navigator.share ? '<button class="btn btn-dark btn-sm" id="net-share">📤 Sdílet</button>' : ''}</div>` : ''}</div>
     <div id="net-status" class="net-status">${NET.status || ''}</div>
-    <div class="net-seats">${setup.players.map((p, i) => `<span class="net-seat ${p.ai ? 'ai' : ''}">${i === 0 ? '👑' : p.ai ? '🤖' : (isHostNet() ? NET.conns[i] : p.on !== false) ? '🟢' : '🔴'} ${p.name}${i === NET.mySeat ? ' (ty)' : ''}</span>`).join('')}</div>
+    <div class="net-seats">${setup.players.map((p, i) => `<span class="net-seat ${p.ai ? 'ai' : ''}">${i === 0 ? '👑' : p.ai ? '🤖' : isHostNet() ? (NET.conns[i] ? (NET.conns[i].relay ? '🛰' : '🟢') : '🔴') : p.on !== false ? '🟢' : '🔴'} ${p.name}${i === NET.mySeat ? ' (ty)' : ''}</span>`).join('')}</div>
     ${isHostNet() ? `<div class="net-btns"><button class="btn btn-dark btn-sm" id="net-add-ai" ${setup.players.length >= MAX_PLAYERS ? 'disabled' : ''}>➕ 🤖 Přidat počítač</button><button class="btn btn-dark btn-sm" id="net-leave">✖ Zrušit místnost</button></div>` :
-      `<p class="hint">Čeká se, až hostitel spustí hru…</p><div class="net-btns"><button class="btn btn-dark btn-sm" id="net-leave">✖ Odejít</button></div>`}`;
+      `<p class="hint">${NET.welcomed ? 'Čeká se, až hostitel spustí hru…' : '⏳ Připojuji se k hostiteli…'}</p><div class="net-btns"><button class="btn btn-dark btn-sm" id="net-leave">✖ Odejít</button></div>`}`;
   ab.appendChild(box);
   const cp = box.querySelector('#net-copy'); if (cp) cp.onclick = async () => { try { await navigator.clipboard.writeText(link); toast('Odkaz zkopírován.'); } catch (e) { toast(link); } };
   const sh = box.querySelector('#net-share'); if (sh) sh.onclick = () => navigator.share({ title: 'Grumpstone – online hra', text: `Pojď hrát Grumpstone! Kód hry: ${NET.code}`, url: link }).catch(() => {});
@@ -2602,6 +2617,195 @@ function netSeatChanged(i) {
   else if (isHostNet() && !netInGame()) netLobbyBroadcast();
 }
 const netCanEditSeat = i => !NET.role ? true : isGuest() ? i === NET.mySeat : (i === 0 || !!(setup.players[i] && setup.players[i].ai));
+// ---------- ZÁLOŽNÍ SPOJENÍ PŘES SERVER (MQTT přes WebSocket, bez účtu) ----------
+// Když se telefony nespojí napřímo (WebRTC za NAT/CGNAT), jdou zprávy přes veřejný MQTT server. Obsah je zašifrovaný klíčem z kódu hry.
+const NET_RELAYS = [
+  { url: 'wss://public.cloud.shiftr.io', user: 'public', pass: 'public' }, // port 443 – projde i přísnými sítěmi
+  { url: 'wss://broker.hivemq.com:8884/mqtt' },
+  { url: 'wss://broker.emqx.io:8084/mqtt' },
+  { url: 'wss://test.mosquitto.org:8081/mqtt' }];
+const netMode = () => { const q = netQuery().get('net'); if (q) return q; try { return localStorage.getItem('grumpstone_netmode') || 'auto'; } catch (e) { return 'auto'; } };
+const netRelayList = () => { const u = netQuery().get('relay'); return u ? [{ url: u }] : NET_RELAYS; };
+class NetMQ { // minimální klient MQTT 3.1.1 (QoS 0) přes WebSocket
+  constructor(cfg, onMsg, onClose) { Object.assign(this, { cfg, onMsg, onClose, buf: new Uint8Array(0), pid: 1, ok: false }); }
+  connect(ms = 7000) {
+    return new Promise((res, rej) => {
+      let done = false; const fin = (e) => { if (done) return; done = true; clearTimeout(t); e ? rej(e) : res(this); };
+      const t = setTimeout(() => { fin(new Error('timeout')); this.close(); }, ms);
+      let ws; try { ws = new WebSocket(this.cfg.url, 'mqtt'); } catch (e) { return fin(e); }
+      this.ws = ws; ws.binaryType = 'arraybuffer';
+      ws.onopen = () => { const enc = new TextEncoder(), s = x => { const b = enc.encode(x); return [b.length >> 8, b.length & 255, ...b]; };
+        const id = 'gs' + Math.random().toString(36).slice(2, 12); let fl = 2; const pl = [...s(id)];
+        if (this.cfg.user) { fl |= 0xC0; pl.push(...s(this.cfg.user), ...s(this.cfg.pass || '')); }
+        this.raw(0x10, [...s('MQTT'), 4, fl, 0, 40, ...pl]); };
+      ws.onmessage = e => { const d = new Uint8Array(e.data), b = new Uint8Array(this.buf.length + d.length); b.set(this.buf); b.set(d, this.buf.length); this.buf = b; this.parse(fin); };
+      ws.onerror = () => fin(new Error('ws'));
+      ws.onclose = () => { const was = this.ok; this.ok = false; clearInterval(this.ping); fin(new Error('closed')); if (was && this.onClose) this.onClose(this); };
+    });
+  }
+  parse(fin) {
+    for (;;) {
+      const b = this.buf; if (b.length < 2) return;
+      let len = 0, mul = 1, i = 1, c; do { if (i >= b.length) return; c = b[i++]; len += (c & 127) * mul; mul *= 128; } while (c & 128);
+      if (b.length < i + len) return;
+      const ty = b[0] >> 4, body = b.subarray(i, i + len); this.buf = b.slice(i + len);
+      if (ty === 2) { if (body[1] === 0) { this.ok = true; this.ping = setInterval(() => this.raw(0xC0, []), 20000); fin(); } else fin(new Error('connack ' + body[1])); }
+      else if (ty === 3) { const tl = (body[0] << 8) | body[1], topic = new TextDecoder().decode(body.subarray(2, 2 + tl)); const q = (b[0] >> 1) & 3;
+        try { this.onMsg(topic, body.slice(2 + tl + (q ? 2 : 0)), this); } catch (e) { console.error(e); } }
+    }
+  }
+  raw(h, arr) { if (!this.ws || this.ws.readyState !== 1) return false; const L = []; let n = arr.length; do { let d = n & 127; n = Math.floor(n / 128); if (n) d |= 128; L.push(d); } while (n);
+    const out = new Uint8Array(1 + L.length + arr.length); out[0] = h; out.set(L, 1); out.set(arr, 1 + L.length); this.ws.send(out); return true; }
+  sub(topic) { const b = new TextEncoder().encode(topic), id = this.pid++; this.raw(0x82, [id >> 8, id & 255, b.length >> 8, b.length & 255, ...b, 0]); }
+  pub(topic, data) { const b = new TextEncoder().encode(topic), out = new Uint8Array(2 + b.length + data.length); out[0] = b.length >> 8; out[1] = b.length & 255; out.set(b, 2); out.set(data, 2 + b.length);
+    if (!this.ws || this.ws.readyState !== 1) return false; const L = []; let n = out.length; do { let d = n & 127; n = Math.floor(n / 128); if (n) d |= 128; L.push(d); } while (n);
+    const pk = new Uint8Array(1 + L.length + out.length); pk[0] = 0x30; pk.set(L, 1); pk.set(out, 1 + L.length); this.ws.send(pk); return true; }
+  close() { this.ok = false; clearInterval(this.ping); try { this.raw(0xE0, []); this.ws.close(); } catch (e) {} }
+}
+// šifrování + komprese + dělení na kousky
+const NR = { key: null, keyCode: null, base: '', id: 'r' + Math.random().toString(36).slice(2, 10), seq: 0, last: {}, parts: {}, q: Promise.resolve() };
+const b64e = u => { let s = ''; for (let i = 0; i < u.length; i += 8192) s += String.fromCharCode.apply(null, u.subarray(i, i + 8192)); return btoa(s); };
+const b64d = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+async function netRelayKey(code) {
+  if (NR.keyCode === code) return; const enc = new TextEncoder();
+  const h = new Uint8Array(await crypto.subtle.digest('SHA-256', enc.encode('grumpstone-kh|' + code)));
+  const t = new Uint8Array(await crypto.subtle.digest('SHA-256', enc.encode('topic|' + code)));
+  NR.key = await crypto.subtle.importKey('raw', h, 'AES-GCM', false, ['encrypt', 'decrypt']); NR.keyCode = code;
+  NR.base = 'grumpstone-kh/' + Array.from(t.subarray(0, 8), x => x.toString(16).padStart(2, '0')).join('');
+}
+async function netPipe(data, stream) { if (typeof CompressionStream === 'undefined') return null; const s = new Blob([data]).stream().pipeThrough(stream); return new Uint8Array(await new Response(s).arrayBuffer()); }
+async function netPack(m) {
+  let raw = new TextEncoder().encode(JSON.stringify(m)), z = 0;
+  if (raw.length > 600) { const c = await netPipe(raw, new CompressionStream('deflate-raw')).catch(() => null); if (c) { raw = c; z = 1; } }
+  const iv = crypto.getRandomValues(new Uint8Array(12)), ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, NR.key, raw));
+  const all = new Uint8Array(13 + ct.length); all[0] = z; all.set(iv, 1); all.set(ct, 13); return all;
+}
+async function netUnpack(all) {
+  const ct = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: all.subarray(1, 13) }, NR.key, all.subarray(13));
+  let raw = new Uint8Array(ct); if (all[0] === 1) raw = await netPipe(raw, new DecompressionStream('deflate-raw'));
+  return JSON.parse(new TextDecoder().decode(raw));
+}
+// Spolehlivé doručení přes MQTT (QoS 0): pořadová čísla pro každý směr, potvrzení (ack), opakované odeslání, stará/zdvojená zpráva se zahodí.
+const NET_CHUNK = 12000;
+NR.out = {}; NR.buf = {};
+const netInbox = () => NET.role === 'host' ? NR.base + '/h' : NR.base + '/g/' + NR.id;
+const netPubJ = (mq, topic, o) => mq && mq.ok && mq.pub(topic, new TextEncoder().encode(JSON.stringify(o)));
+function netRelayXmit(o, s) {
+  const e = o.pend.get(s); if (!e || !e.d) return; e.t = Date.now(); e.tries++;
+  const b = Math.min(...o.pend.keys()), r = netInbox();
+  e.d.forEach((d, i) => netPubJ(o.mq, o.topic, { f: NR.id, r, s, b, i, n: e.d.length, d }));
+}
+function netRelaySend(mq, topic, m) {
+  const o = NR.out[topic] = NR.out[topic] || { topic, seq: 0, pend: new Map() }; o.mq = mq;
+  const s = ++o.seq, kind = m.t === 'state' ? 'state' : 'x';
+  if (kind === 'state') o.pend.forEach((e, k) => { if (e.kind === 'state') o.pend.delete(k); }); // novější stav nahradí starší
+  const e = { kind, tries: 0, t: Date.now(), d: null }; o.pend.set(s, e);
+  NR.q = NR.q.then(async () => { if (!NR.key) return; const b = b64e(await netPack(m)), n = Math.max(1, Math.ceil(b.length / NET_CHUNK));
+    e.d = Array.from({ length: n }, (_, i) => b.slice(i * NET_CHUNK, (i + 1) * NET_CHUNK)); if (o.pend.has(s)) netRelayXmit(o, s); }).catch(err => console.warn('relay send', err));
+}
+setInterval(() => { const now = Date.now(); Object.values(NR.out).forEach(o => o.pend.forEach((e, s) => {
+  if (!e.d || now - e.t < 2500) return; if (e.tries >= 15) { o.pend.delete(s); return; } netRelayXmit(o, s); })); }, 1000);
+function netRelayCtl(mq, topic, c) { netPubJ(mq, topic, { f: NR.id, r: netInbox(), c }); }
+// příjem: cb(f, m, mq, r) pro zprávy v pořadí; ctl(f, c, mq, r) pro řídicí (ka/bye)
+function netRelayRecv(payload, mq, cb, ctl) {
+  if (NR.drop == null) NR.drop = +(netQuery().get('drop') || 0); if (NR.drop && Math.random() < NR.drop) return; // test: ztráta paketů
+  let p; try { p = JSON.parse(new TextDecoder().decode(payload)); } catch (e) { return; }
+  if (!p || !p.f || p.f === NR.id) return;
+  if (p.c) return ctl && ctl(p.f, p.c, mq, p.r);
+  if (p.a != null) { const o = NR.out[p.r]; if (o) { o.mq = mq; o.pend.forEach((e, k) => { if (k <= p.a) o.pend.delete(k); }); } if (ctl) ctl(p.f, 'ack', mq, p.r); return; }
+  if (typeof p.s !== 'number' || typeof p.r !== 'string') return;
+  const ack = () => netPubJ(mq, p.r, { f: NR.id, r: netInbox(), a: NR.last[p.f] || 0 });
+  let L = NR.last[p.f] || 0; if (p.b - 1 > L) { L = NR.last[p.f] = p.b - 1; } // odesílatel to vzdal → přeskočit
+  if (p.s <= L) return ack();
+  const k = p.f + ':' + p.s, part = NR.parts[k] = NR.parts[k] || { got: 0, d: [], t: Date.now() };
+  if (part.d[p.i] != null) return; part.d[p.i] = p.d; part.got++;
+  if (part.got < p.n) return;
+  delete NR.parts[k];
+  Object.keys(NR.parts).forEach(x => { if (Date.now() - NR.parts[x].t > 60000) delete NR.parts[x]; });
+  const data = part.d.join('');
+  NR.rq = (NR.rq || Promise.resolve()).then(async () => {
+    let m; try { m = await netUnpack(b64d(data)); } catch (e) { return; }
+    const bf = NR.buf[p.f] = NR.buf[p.f] || new Map(); let L2 = NR.last[p.f] || 0;
+    if (p.s <= L2) return ack(); bf.set(p.s, m);
+    [...bf.keys()].forEach(x => { if (x <= L2) bf.delete(x); });
+    while (bf.has(L2 + 1)) { const mm = bf.get(L2 + 1); bf.delete(L2 + 1); L2++; NR.last[p.f] = L2; cb(p.f, mm, mq, p.r); }
+    if (!bf.size && L2 < p.s) { /* čeká se na chybějící */ }
+    ack();
+  });
+}
+class NetRelayConn { // vypadá jako PeerJS DataConnection (on/send/close/open)
+  constructor(peerId, mq, topic) { Object.assign(this, { peer: peerId, mq, topic, open: true, relay: true, ev: {}, seen: Date.now() }); }
+  on(e, f) { (this.ev[e] = this.ev[e] || []).push(f); return this; }
+  emit(e, x) { (this.ev[e] || []).forEach(f => { try { f(x); } catch (er) { console.error(er); } }); }
+  send(m) { if (this.open) netRelaySend(this.mq, this.topic, m); }
+  ctl(c) { netRelayCtl(this.mq, this.topic, c); }
+  close() { if (!this.open) return; this.ctl('bye'); this.open = false; this.emit('close'); }
+}
+async function netRelayConnectAny(onMsg, onClose, list) {
+  for (const cfg of list || netRelayList()) {
+    const mq = new NetMQ(cfg, onMsg, onClose);
+    try { await mq.connect(); return mq; } catch (e) { mq.close(); }
+  }
+  return null;
+}
+function netRelayStop() { const R = NET.relay; NET.relay = null; if (!R) return; R.dead = true; clearInterval(R.ka); clearInterval(R.hello); clearTimeout(R.t); (R.mqs || []).forEach(m => m.close()); if (R.mq) R.mq.close(); }
+// hostitel: poslouchá na všech serverech zároveň
+async function netRelayHost() {
+  netRelayStop(); if (netMode() === 'p2p' || !window.crypto || !crypto.subtle) return;
+  const R = NET.relay = { mqs: [], conns: new Map(), code: NET.code, dead: false };
+  await netRelayKey(NET.code); if (R.dead) return;
+  const topicH = NR.base + '/h';
+  const touch = (f, mq) => { const c = R.conns.get(f); if (c) { c.mq = mq; c.seen = Date.now(); } return c; };
+  const onMsg = (topic, payload, mq) => netRelayRecv(payload, mq, (f, m, mq2, r) => {
+    if (R.dead) return; let c = R.conns.get(f);
+    if (!c || !c.open) { if (m.t !== 'hello') return; c = new NetRelayConn(f, mq2, r); R.conns.set(f, c); netHostConn(c); }
+    touch(f, mq2); c.emit('data', m);
+  }, (f, k, mq2) => { if (R.dead) return; const c = touch(f, mq2);
+    if (k === 'bye' && c) { R.conns.delete(f); c.open = false; c.emit('close'); } });
+  const start = cfg => { if (R.dead) return; const mq = new NetMQ(cfg, onMsg, () => { R.mqs = R.mqs.filter(x => x !== mq); if (!R.dead) setTimeout(() => start(cfg), 3000); });
+    mq.connect().then(() => { if (R.dead) return mq.close(); R.mqs.push(mq); mq.sub(topicH); NET.relayOpen = true; netHostReady(); })
+      .catch(() => { mq.close(); if (!R.dead) setTimeout(() => start(cfg), 15000); }); };
+  netRelayList().forEach(start);
+  R.ka = setInterval(() => { R.conns.forEach((c, f) => { if (!c.open) return R.conns.delete(f);
+    if (Date.now() - c.seen > 30000) { R.conns.delete(f); c.open = false; c.emit('close'); } else c.ctl('ka'); }); }, 5000);
+}
+// host: přepnutí na záložní server
+async function netRelayGuest() {
+  if (!isGuest() || NET.left || (NET.relay && !NET.relay.dead)) return;
+  if (netMode() === 'p2p' || !window.crypto || !crypto.subtle) return;
+  NET.via = 'relay'; const code = NET.code;
+  if (NET.hostConn && !NET.hostConn.relay) { const old = NET.hostConn; NET.hostConn = null; try { old.close(); } catch (e) {} }
+  if (NET.peer) { const p = NET.peer; NET.peer = null; try { p.destroy(); } catch (e) {} }
+  const R = NET.relay = { dead: false, code };
+  await netRelayKey(code);
+  netStatus(NET.welcomed ? '⏳ Obnovuji spojení přes server…' : `⏳ Přímé spojení nejde – zkouším záložní spojení přes server…`);
+  let conn = null;
+  const onMsg = (topic, payload, mq) => netRelayRecv(payload, mq, (f, m) => { if (R.dead || !conn) return; conn.seen = Date.now(); conn.emit('data', m); },
+    (f, k) => { if (R.dead || !conn) return; conn.seen = Date.now(); if (k === 'bye') lost(); });
+  const lost = () => { if (R.dead || NET.relay !== R) return; if (conn) conn.open = false; clearInterval(R.ka); clearInterval(R.hello);
+    if (NET.hostConn === conn) NET.hostConn = null; netStatus('⚠️ Spojení přerušeno – připojuji znovu přes server…'); netBar();
+    if (R.mq) R.mq.close(); R.mq = null; R.t = setTimeout(go, 2500); };
+  const go = async () => {
+    if (R.dead || NET.relay !== R) return;
+    const mq = await netRelayConnectAny(onMsg, () => lost());
+    if (R.dead || NET.relay !== R) { if (mq) mq.close(); return; }
+    if (!mq) { netStatus('⚠️ Server pro záložní spojení je nedostupný – zkouším znovu…'); R.t = setTimeout(go, 4000); return; }
+    R.mq = mq; mq.sub(NR.base + '/g/' + NR.id);
+    const o = NR.out[NR.base + '/h']; if (o) o.mq = mq; // nedoručené zprávy půjdou novým spojením
+    conn = new NetRelayConn('host', mq, NR.base + '/h'); conn.seen = Date.now(); NET.hostConn = conn;
+    conn.on('data', m => { try { netGuestMsg(m); } catch (e) { console.error(e); } });
+    const saved = netLoadGuest(), token = saved && saved.code === code ? saved.token : null;
+    const hello = () => conn.send({ t: 'hello', name: NET.name || (saved && saved.name) || '', token, gid: NR.id, v: NET_PROTO });
+    hello(); clearInterval(R.hello); R.hello = setInterval(() => { if (NET.welcomedVia !== conn) hello(); else clearInterval(R.hello); }, 30000);
+    clearInterval(R.ka); R.ka = setInterval(() => { if (!conn.open) return; conn.ctl('ka'); if (NET.welcomedVia === conn && Date.now() - conn.seen > 30000) lost(); }, 5000);
+  };
+  go();
+}
+// stav pro hlášky
+function netViaLabel() { return NET.via === 'relay' ? '🛰 Připojeno přes server' : '🌐 Připojeno (přímo)'; }
+let netWake = null;
+async function netWakeLock(on) { try { if (on && !netWake && navigator.wakeLock && document.visibilityState === 'visible') { netWake = await navigator.wakeLock.request('screen'); netWake.addEventListener('release', () => { netWake = null; }); } else if (!on && netWake) { netWake.release(); netWake = null; } } catch (e) {} }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && NET.role) netWakeLock(true); });
 // ---------- přesměrování akcí: u hosta se akce posílají hostiteli ----------
 function netWrap(name, fn, conv) { NET_REAL[name] = fn; return function (...a) { if (isGuest()) { netSendAct(name, conv ? conv(...a) : a); return name === 'boardShip' ? true : undefined; } return fn.apply(this, a); }; }
 moveTo = netWrap('moveTo', moveTo, id => { panelLoc = id; return [id]; });
@@ -2653,9 +2857,9 @@ function bind() {
   $('menu-new').onclick = () => { netLeave(); aiGen++; clearTimeout(aiTimer); document.body.classList.remove('ai-turn'); if ($('ai-bar')) $('ai-bar').classList.add('hidden'); $('menu').classList.add('hidden'); $('npc').classList.add('hidden'); closePanel(true); initSetup(); show('screen-setup'); };
   $('menu-title').onclick = () => { netLeave(); aiGen++; clearTimeout(aiTimer); document.body.classList.remove('ai-turn'); if ($('ai-bar')) $('ai-bar').classList.add('hidden'); $('menu').classList.add('hidden'); $('npc').classList.add('hidden'); closePanel(true); initTitle(); show('screen-title'); };
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !aiTurnNow() && myTurnNet()) closePanel(); });
-  document.addEventListener('click', e => { const h = e.target.closest('[data-handover]'); if (h) { e.stopPropagation(); netHandover(+h.dataset.handover); } }, true);
+  document.addEventListener('click', e => { if (e.target.closest('#net-retry')) { const c = NET.code, n = NET.name; e.stopPropagation(); netJoin(c, n); return; } const h = e.target.closest('[data-handover]'); if (h) { e.stopPropagation(); netHandover(+h.dataset.handover); } }, true);
 }
 
 bind(); initTitle();
-window.GS = { get NET() { return NET; }, netHost, netJoin, netStart, netAddAI, netHandover, netLeave, netRemoveSeat, netIce, netNorm, isGuest, myTurnNet, itemAct, tradePropose, tradeAnswer, combatDrink, setNpcOn, BOSS_RESPAWN, bossRespawnTick, pendingRespawns, bossRespawnAt, finishBossFight, isAI, focusMatch, finishNpc, combatRoll, ROLE, HEROES, aiStep, aiRun, aiKick, aiSetSpeed, aiEstimate, aiActions, aiGoal, aiCfg, AI_DIFFS, get aiStats() { return aiStats; }, get aiDelay() { return aiDelay; }, useAbility, npcPick, npcRoll, npcDecide, npcQuest, overflowSell, setAiCount, setGameMode, get setup() { return setup; }, renderSetup, newGame, startGame, isCheat, CHEAT_WIN, CHEAT_PUNCH, rollPending, seaWhy, isMole, tunnelVia, COAL_PRICE, collectCoal, coalOpts, MOLE_WATER, LADJ, canSwim, SWIM_HEROES, heroById, WIN_GP, checkFinale, openFinale, startFinale, showVictory, declareWinner, chaOnlyWhy, SHIPS, SHIP_PRICE, shipOf, moveKind, boardShip, openShipModal, shipWhy, reachable, OFFSHORE, PORTS, MAINLAND, xpNeed, addXp, MAX_LEVEL, XP_PER_LEVEL, shopStock, shopView, SHOP_SLOTS, PRICE, TIER_LV, BM_PRICE, arenaDiff, npcDiff, MIN_DIE, mountName, isNatural, hasMount, MAX_PLAYERS, forceQuestStat: v => { FORCE_QSTAT = v; }, completeQuests, MOUNTS, stepsOf, openMountModal, closePanel, placeBoss: (id, loc, pi) => { S.bosses = S.bosses || {}; const b = BOSS_BY_ID[id]; S.bosses[id] = { sh: b.sh, hp: b.hp, dead: false, active: true, loc, for: pi == null ? null : pi, since: S.round }; renderAll(); }, bossRoundStart, spawnBossFor, activeBosses, tierForLevel, focusOfHero, unforce: () => { FORCE_ROLLS = []; }, CB, BOSS_BY_ID, bossState, bossAt, startBossFight, startPvp, pvpBlock, cardPool, atkKeyOf, closeCombat, forceCards: a => { FORCE_CARDS = a; }, forceLoot: v => { FORCE_LOOT = v; }, approachOf, heroCtx, combatChoose, EQUIP_MAX, BAG_MAX, PAWN, TRADE_MULT, loadoutProblem, itemType, unequipItem, sellItem, migrateGear, hasRoom, renderOverflow, swapOptions, force: a => FORCE_ROLLS.push(...a), forceSearch: id => { FORCE_SEARCH = id; }, ITEMS, ITEM_BY_ID, giveItem, equipItem, canWear, itemBonus, tradeBlock, openTrade, SEARCH, addStatus, openItem, makeDie, get S() { return S; }, ADJ, BY_ID, ABILITIES, NPC, moveTo, stay, endTurn, passTurn, heroStat, stat, combatKey, trainLock, makeQuest, distances, rollAbilities, renderAll, openPanel }; // pro testy // pro testy
+window.GS = { get NET() { return NET; }, NR, netMode, netRelayGuest, netHost, netJoin, netStart, netAddAI, netHandover, netLeave, netRemoveSeat, netIce, netNorm, isGuest, myTurnNet, itemAct, tradePropose, tradeAnswer, combatDrink, setNpcOn, BOSS_RESPAWN, bossRespawnTick, pendingRespawns, bossRespawnAt, finishBossFight, isAI, focusMatch, finishNpc, combatRoll, ROLE, HEROES, aiStep, aiRun, aiKick, aiSetSpeed, aiEstimate, aiActions, aiGoal, aiCfg, AI_DIFFS, get aiStats() { return aiStats; }, get aiDelay() { return aiDelay; }, useAbility, npcPick, npcRoll, npcDecide, npcQuest, overflowSell, setAiCount, setGameMode, get setup() { return setup; }, renderSetup, newGame, startGame, isCheat, CHEAT_WIN, CHEAT_PUNCH, rollPending, seaWhy, isMole, tunnelVia, COAL_PRICE, collectCoal, coalOpts, MOLE_WATER, LADJ, canSwim, SWIM_HEROES, heroById, WIN_GP, checkFinale, openFinale, startFinale, showVictory, declareWinner, chaOnlyWhy, SHIPS, SHIP_PRICE, shipOf, moveKind, boardShip, openShipModal, shipWhy, reachable, OFFSHORE, PORTS, MAINLAND, xpNeed, addXp, MAX_LEVEL, XP_PER_LEVEL, shopStock, shopView, SHOP_SLOTS, PRICE, TIER_LV, BM_PRICE, arenaDiff, npcDiff, MIN_DIE, mountName, isNatural, hasMount, MAX_PLAYERS, forceQuestStat: v => { FORCE_QSTAT = v; }, completeQuests, MOUNTS, stepsOf, openMountModal, closePanel, placeBoss: (id, loc, pi) => { S.bosses = S.bosses || {}; const b = BOSS_BY_ID[id]; S.bosses[id] = { sh: b.sh, hp: b.hp, dead: false, active: true, loc, for: pi == null ? null : pi, since: S.round }; renderAll(); }, bossRoundStart, spawnBossFor, activeBosses, tierForLevel, focusOfHero, unforce: () => { FORCE_ROLLS = []; }, CB, BOSS_BY_ID, bossState, bossAt, startBossFight, startPvp, pvpBlock, cardPool, atkKeyOf, closeCombat, forceCards: a => { FORCE_CARDS = a; }, forceLoot: v => { FORCE_LOOT = v; }, approachOf, heroCtx, combatChoose, EQUIP_MAX, BAG_MAX, PAWN, TRADE_MULT, loadoutProblem, itemType, unequipItem, sellItem, migrateGear, hasRoom, renderOverflow, swapOptions, force: a => FORCE_ROLLS.push(...a), forceSearch: id => { FORCE_SEARCH = id; }, ITEMS, ITEM_BY_ID, giveItem, equipItem, canWear, itemBonus, tradeBlock, openTrade, SEARCH, addStatus, openItem, makeDie, get S() { return S; }, ADJ, BY_ID, ABILITIES, NPC, moveTo, stay, endTurn, passTurn, heroStat, stat, combatKey, trainLock, makeQuest, distances, rollAbilities, renderAll, openPanel }; // pro testy // pro testy
 })();
