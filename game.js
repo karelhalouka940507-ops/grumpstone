@@ -18,7 +18,8 @@ const ASSETS = {
   hero_olgrich: 'assets/heroes/olgrich.jpg', art_olgrich: 'assets/heroes/olgrich_art.jpg', fig_olgrich: 'assets/heroes/olgrich_fig.jpg',
   hero_vodicka: 'assets/heroes/vodicka.jpg', art_vodicka: 'assets/heroes/vodicka_art.jpg', fig_vodicka: 'assets/heroes/vodicka_fig.jpg',
   hero_chadimpetro: 'assets/heroes/chadimpetro.jpg', art_chadimpetro: 'assets/heroes/chadimpetro_art.jpg', fig_chadimpetro: 'assets/heroes/chadimpetro_fig.jpg',
-  hero_everett: 'assets/heroes/everett.jpg', art_everett: 'assets/heroes/everett_art.jpg', fig_everett: 'assets/heroes/everett_fig.jpg'
+  hero_everett: 'assets/heroes/everett.jpg', art_everett: 'assets/heroes/everett_art.jpg', fig_everett: 'assets/heroes/everett_fig.jpg',
+  hero_rhina: 'assets/heroes/rhina.jpg', art_rhina: 'assets/heroes/rhina_art.jpg', fig_rhina: 'assets/heroes/rhina_fig.jpg'
 };
 
 const MAP_W = 1600, MAP_H = 895, START = 'telgarion', MAX_HP = 10, STEPS = 2;
@@ -81,6 +82,8 @@ const HEROES = [
     motto: '„Já nejsem lakomej. Já jenom vím, co má skutečnou cenu.“', lore: '<b>Příběh – Krtek, který ví, co má skutečnou cenu</b>|Chadimpetro je obří krtek horník. Na zádech krumpáč, v tlapě lucerna, přes rameno pytle uhlí – a kudy projde, tam už dlažba nikdy nesedí tak, jak seděla. Městská hlídka ho nemá ráda, protože se jí pořád propadá strážnice. Chadimpetro to nechápe: on jen jde nakoupit okurky.|<b>Lovec</b>|Dvacetimetrová stonožka je pro městskou hlídku noční můra. Pro Chadimpetra je to prostě vydatný oběd. Dokonce si ji nejprve mlsně prohlédne.|Pak ji odborně ohodnotí jako kuchař na trhu: „Tohle je malá stonožka. Ještě ani nemá pořádný maso.“ A sní ji stejně, protože doma čeká osm hladových pusinek.|<b>Rodinný typ</b>|Osm dětí pojmenovaných Paštika 1 až Paštika 8. Jména vymýšlel sám a je na ně patřičně hrdý – jsou praktická, dobře se počítají a hned je vidět, kdo je nejstarší. Úplně si představuji, jak na ně řve přes celý důl: „Paštiko šestá, nech tu stonožku, to je večeře!“|Ani to ale nepomáhá. O chvíli později se z hloubky ozve znovu: „Paštiko třetí, nejez tu lampu! To není k jídlu!“|Karmu má neutrální: neubližuje, když nemusí, a obchoduje s každým, kdo mu za uhlí nabídne něco opravdu cenného. Zlato bere, ale okurky jsou lepší. Když mu jednou kupec nabízel drahokam velký jako pěst, Chadimpetro se jen podrbal na čumáku: „Diamant? A můžu za něj dostat okurky?“|<b>Nenávist k trpaslíkům</b>|Trpaslíci považují důl za zdroj bohatství, Chadimpetro za svůj domov a jídelnu. Jejich představa pořádku je naprosto neslučitelná. Trpaslík vidí žílu zlata, krtek vidí zeď obýváku. Trpaslík vykope šachtu, krtek ji večer zahrabe, protože táhne na děti.|Kdykoli zaslechne v podzemí cinkání trpasličího krumpáče, zježí se mu srst po celém těle: „Trpaslík! Zase mi hrabe do podlahy!“|<b>Podzemní chodby</b>|Po povrchu chodí nerad – je tam moc světla a málo stonožek. Pod zemí se ale jedním pochodem prokope klidně o dvě lokace dál, a protože cestou kope, vždycky mu do pytle napadá trocha uhlí. To pak prodává na tržišti jako jediný v celém kraji.|Na koně ho nedostanete: krtek nejezdí, krtek kope. Na loď ani do vody taky ne – jakmile nemá půdu pod nohama, ztrácí hlavu. Do arény ho nepustí, protože minule prokopal písek až do sklepa a půlka diváků skončila v tunelu. A z herny ho vyhodili, když se pokusil sníst kostky, protože voněly jako hrášek.|Na otázku, proč nikdy nic nerozdá zadarmo, odpovídá vždycky stejně a s naprostým klidem: „Já nejsem lakomej. Já jenom vím, co má skutečnou cenu.“'.split('|') },
   { id: 'everett', name: 'Everett – Černá růže', cls: 'Diplomat (šlechtic manipulátor)', ic: '🌹', al: 'NE', alName: 'Neutrálně zlý', desc: 'Diplomat. Marnivý, zbabělý a nesmírně okouzlující šlechtic v růžovém kabátci s černou růží, který drží štěně za kůži na krku a míří na trůn. Charisma; ve městech a vesnicích kouzlí, v divočině je slabý. 🎲 Podvodník u kostek: v herně +1 k hodu, výhra = 6Z, ale dostane přes hubu (−2 ❤️).',
     motto: '„Já nejsem ambiciózní. Jen mám pocit, že trůn je na špatném místě.“', lore: '<b>Příběh – Černá růže</b>|Everett je šlechtic. To je první věc, kterou o sobě řekne, a obvykle i druhá a třetí. Nosí růžový kabátec s vyšitou černou růží, prsteny na každém prstu, kterým se zrovna nic nestalo, a vlasy, které by nikdy nepustil do deště. Jeho vzhled a oblečení jsou pro něj téměř posvátné – kdo mu pomačká rukáv, ten si ho pamatuje déle než vlastní křest.|<b>Charismatický</b>|Když chce, umí být skutečně okouzlující. Usměje se, pochválí vám boty, zeptá se na zdraví babičky a vy ani nepoznáte, kdy jste mu začali dlužit. Dokáže být skutečně příjemný – pokud z toho něco má. Každý člověk je pro něj potenciální nástroj, nebo aspoň publikum.|<b>Manipulátor</b>|Lidé kolem něj se dělí na dvě skupiny: na ty, kteří mu už posloužili, a na ty, kteří to ještě nevědí. Když mu někdo naznačí, že je podezřelý, jen se unaveně pousměje: „Prosím vás, nebuďte směšní. Kdybych vás chtěl zradit, už byste o tom dávno nevěděli.“|<b>Trůn</b>|Everett touží po trůnu. Sám by to ovšem nikdy tak hrubě neřekl: „Já nejsem ambiciózní. Jen mám pocit, že trůn je na špatném místě.“ Konkrétně tedy pod někým jiným než pod ním.|Na cestě mu stojí především sestřenice Liona, ke které chová ty nejvřelejší city, jaké se dají vyslovit nahlas: „Liona? Má sestřenice? Samozřejmě jí přeji všechno nejlepší. Jen trochu dál od trůnu.“|<b>Zbabělec</b>|Nerad riskuje vlastní kůži – ta je přece jen pečlivě ošetřovaná. Raději nechá ostatní bojovat za něj a pak u hostiny vypráví, jak to celé vymyslel. Do souboje se pouští, jen když nemá nikoho, za koho by se schoval, a i tehdy si nejdřív zkontroluje účes.|Kdysi se setkal s obávaným Náčelníkem a vrátil se bez škrábnutí, což vypráví při každé příležitosti: „Náčelník byl velmi milý. Dokonce mi zavázal boty. Myslím, že ve mně viděl přirozenou autoritu.“|<b>Patetický</b>|Když něco nevyjde, okamžitě se staví do role ublíženého. Prohraná partie, deštivý den nebo nevděčný svět – vždycky je to křivda spáchaná na něm. Útěchu nachází u jediné autority, kterou nikdy nezpochybnil: „Matka vždy říkala, že jsem výjimečný. A matky mají vždycky pravdu.“|<b>Podvodník u kostek</b>|V herně je Everett pravidelným a velmi štědrým hostem – hlavně co se týče kostek, které si nosí v rukávu. Díky podvádění si vždycky přihodí o oko víc. Jenže když vyhraje, ostatní hráči si toho bohužel všimnou: shrábne šest zlaťáků a vzápětí dostane přes hubu. Pak se urazí, a to velmi okázale.|<b>Mimo salóny</b>|Jeho zbraní je úsměv a úsměv potřebuje publikum. Ve městech a vesnicích kouzlí, v divočině je jen vyděšený muž v růžovém kabátci, který drží štěně za kůži na krku a doufá, že medvěd ocení jeho styl.'.split('|') },
+  { id: 'rhina', name: 'Rhina – Dívka z dolů', cls: 'Lovkyně (lučištnice a zlodějka)', ic: '🏹', al: 'CG', alName: 'Chaoticky dobrá', female: true, desc: 'Lovkyně. Rohatá dívka s kopýtky, která utekla z dolů a teď žije z luku a hbitých prstů. Boj; v boji rychlá a nevyzpytatelná. 🤏💰 Krádež na tržišti: jednou za 3 kola si na Tržišti zdarma ukradne 1 předmět z nabídky (kvalita podle levelu jako v nabídce).',
+    motto: '„Nikdy neminu svůj cíl.“', lore: '<b>Příběh – Dívka z dolů</b>|Rhina se narodila tam, kam slunce nesvítí – v hlubokých dolech, kde děti s kopýtky a rohy tahaly vozíky s rudou, protože se do úzkých štol vešly líp než dospělí. Nikdo se jí neptal, jak se jmenuje. Stačilo, že unese pytel.|<b>Útěk</b>|Jedné noci, když se zřítila stará štola, vyšplhala Rhina komínem až na povrch. Poprvé uviděla nebe, moře a džungli – a rozhodla se, že už ji nikdo nikdy nezavře pod zem. Luk si ukradla. Šípy taky. A boty nepotřebuje, má kopyta.|<b>Lučištnice a zlodějka</b>|Naučila se střílet dřív, než se naučila číst, a krást dřív, než se naučila prosit. Bere ale jen těm, kdo mají dost – kupcům, výběrčím a pánům z dolů. „Nikdy neminu svůj cíl“ platí u ní pro šíp i pro cizí měšec.|<b>🤏💰 Krádež na tržišti</b>|Jednou za 3 kola si na Tržišti zdarma „vezme“ jeden předmět z nabídky. Co uvidí, to může ukrást: oranžové věci od levelu 3, fialové od levelu 6 – stejně jako při nákupu. Když je krádež připravená, nosí její figurka odznak 🤏💰.'.split('|') },
   { id: 'igiorio', name: 'Igiorio Zapomenutý', cls: 'Mág', ic: '🔮', al: 'CE', desc: 'Mág. Senilní gnómí čaroděj v trenýrkách se srdíčky – chaos v hábitu.' }
 ];
 HEROES.forEach(h => { const a = AL[h.al]; h.alCz = h.alName || a[0]; h.alEn = a[1]; h.side = a[2]; h.img = 'hero_' + h.id; });
@@ -135,14 +138,14 @@ const clampHp = p => { p.hp = Math.max(0, Math.min(MAX_HP, p.hp)); };
 // ---------- TŘÍDY A TRÉNINK ----------
 // Prozatímní statistiky hrdinů [Boj, Obrana, Inteligence, Charisma] – k doladění.
 const ROLE = { conrad: 'tank', kragthar: 'tank', goro: 'tank', mordraga: 'tank', thorne: 'assassin', silvia: 'assassin', hargan: 'hunter',
-  elara: 'diplomat', piddlewick: 'diplomat', everett: 'diplomat', josepho: 'mage', igiorio: 'mage', zara: 'mage', houbik: 'mage', vodicka: 'mage', olgrich: 'vampire', chadimpetro: 'fighter', finn: 'hybrid' };
+  elara: 'diplomat', piddlewick: 'diplomat', everett: 'diplomat', josepho: 'mage', igiorio: 'mage', zara: 'mage', houbik: 'mage', vodicka: 'mage', olgrich: 'vampire', chadimpetro: 'fighter', finn: 'hybrid', rhina: 'hunter' };
 const ROLE_NAME = { tank: 'Tank', assassin: 'Assassin', hunter: 'Lovec', diplomat: 'Diplomat', mage: 'Kouzelník', vampire: 'Upír', fighter: 'Bojovník', hybrid: 'Hybrid' };
 const TRAIN_ALLOW = { tank: ['obr'], assassin: ['boj'], hunter: ['boj'], diplomat: ['cha'], mage: ['int'], vampire: ['int', 'cha'], fighter: ['boj', 'obr'], hybrid: ['boj', 'int', 'cha'] }; // v7: hlavní vlastnost(i) = jediné, co se dá placeně trénovat
 const STAT_NAME = { boj: 'Boj', obr: 'Obrana', int: 'Inteligence', cha: 'Charisma' };
 const STAT_IC = { boj: '⚔️', obr: '🛡️', int: '📖', cha: '💬' };
 const HSTAT = {
   conrad: [1, 3, 0, 1], kragthar: [1, 4, 0, 1], goro: [1, 4, 0, 0], mordraga: [2, 3, 0, 1], // Mordraga: prozatímní
-  thorne: [3, 1, 1, 2], silvia: [3, 1, 0, 2], hargan: [3, 1, 1, 1],
+  thorne: [3, 1, 1, 2], silvia: [3, 1, 0, 2], hargan: [3, 1, 1, 1], rhina: [3, 2, 1, 1], // v22 Rhina: Boj 3 (hlavní), Obrana 2 (hbitost)
   elara: [0, 0, 1, 4], piddlewick: [0, 0, 1, 4], everett: [1, 1, 1, 3], // v17 Everett: Charisma 3 (hlavní), ostatní 1
   josepho: [1, 1, 3, 2], igiorio: [0, 0, 4, 1], zara: [1, 1, 3, 2], houbik: [1, 2, 3, 0], vodicka: [0, 1, 4, 1], olgrich: [1, 1, 3, 3], chadimpetro: [3, 3, 0, 1], finn: [1, 2, 2, 2]
 };
@@ -191,13 +194,15 @@ const ABILITIES = {
     apply: (p, l, o) => { const it = ITEM_BY_ID[o]; p.gold -= it.price; shopTake(l.id + ':kovarna', o); const r = giveItem(p, o);
       return { log: `koupil v kovárně „${it.name}“ (−${it.price}Z)`, html: `⚒️ Kovář ti podává <b>${it.name}</b> – ${r === 'equipped' ? 'hned si ho nasazuješ.' : r === 'bag' ? 'ukládáš ho do brašny.' : r === 'full' ? FULL_TXT + '.' : 'tvoje třída ho nosit nemůže, putuje do brašny.'}<div class="loot">${itemCardHTML(it, p)}</div>` }; } },
   trziste: { name: 'Tržiště', img: 'trziste', text: 'Kup (nabídka se mění každé kolo; oranžové od levelu 3, fialové od levelu 6) nebo prodej předmět za výkupní cenu: žlutý 3Z, oranžový 5Z, fialový 10Z. (Prodávat můžeš i přes kartu předmětu – nestojí to akci.)',
-    options: (p, l) => [...(l ? shopView(p, l.id + ':trziste', SHOP_SLOTS.trziste) : []).map(id => itemOpt(id, ITEM_BY_ID[id].price, p, 'buy:')),
+    options: (p, l) => [...stealOpts(p, l), ...(l ? shopView(p, l.id + ':trziste', SHOP_SLOTS.trziste) : []).map(id => itemOpt(id, ITEM_BY_ID[id].price, p, 'buy:')),
       ...ownedBy(p).map(id => ({ id, label: `Prodat ${ITEM_BY_ID[id].name} +${PAWN[ITEM_BY_ID[id].tier]}Z`, cls: 't-' + ITEM_BY_ID[id].tier })),
       ...coalOpts(p)],
-    req: (p, l, o) => !o ? 'Vyber, co koupit nebo prodat.' : o.startsWith('coal:') ? (!isMole(p) ? 'Uhlí smí prodávat jen Chadimpetro.' : (p.coal || 0) < 1 ? 'Nemáš žádný pytel uhlí.' : null) : (o.startsWith('buy:') && p.gold < ITEM_BY_ID[o.slice(4)].price ? `Potřebuješ ${ITEM_BY_ID[o.slice(4)].price} zlaťáků.` : null),
+    req: (p, l, o) => !o ? 'Vyber, co koupit nebo prodat.' : o.startsWith('steal:') ? (!isThief(p) ? 'Krást umí jen Rhina.' : !stealReady(p) ? `Další krádež až v kole ${p.stealAt}.` : null) : o.startsWith('coal:') ? (!isMole(p) ? 'Uhlí smí prodávat jen Chadimpetro.' : (p.coal || 0) < 1 ? 'Nemáš žádný pytel uhlí.' : null) : (o.startsWith('buy:') && p.gold < ITEM_BY_ID[o.slice(4)].price ? `Potřebuješ ${ITEM_BY_ID[o.slice(4)].price} zlaťáků.` : null),
     apply: (p, l, o) => {
       if (o.startsWith('buy:')) { const id = o.slice(4), it = ITEM_BY_ID[id]; p.gold -= it.price; shopTake(l.id + ':trziste', id); const r = giveItem(p, id);
         return { log: `koupil na tržišti „${it.name}“ (−${it.price}Z)`, html: `🛒 Kupec ti podává <b>${it.name}</b>${r === 'equipped' ? ' – hned ho máš na sobě' : r === 'full' ? ' – ' + FULL_TXT : ' – do brašny'}.` }; }
+      if (o.startsWith('steal:')) { const id = o.slice(6), it = ITEM_BY_ID[id]; shopTake(l.id + ':trziste', id); const r = giveItem(p, id); p.stealAt = S.round + STEAL_CD; p.steals = (p.steals || 0) + 1;
+        return { log: `🤏💰 ukradla na tržišti „${it.name}“ (zdarma; další krádež v kole ${p.stealAt})`, html: `🤏💰 Rhina proklouzne mezi stánky, chvilku se kupci dívá zpříma do očí… a <b>${it.name}</b> už je její${r === 'equipped' ? ' – hned ho má na sobě' : r === 'full' ? ' – ' + FULL_TXT : ' – do brašny'}. Nikdo nic neviděl. <small>Další krádež v kole ${p.stealAt}.</small><div class="loot">${itemCardHTML(it, p)}</div>` }; }
       if (o.startsWith('coal:')) return sellCoal(p, o);
       const it = ITEM_BY_ID[o], v = PAWN[it.tier]; removeItem(p, o); p.gold += v; return { log: `prodal na tržišti „${it.name}“ (+${v}Z)`, html: `💰 Prodáno: <b>${it.name}</b> za <b>${v}</b> zlaťáků.` };
     } },
@@ -285,6 +290,16 @@ function collectCoal(p) { if (!isMole(p) || p.coalRound === S.round) return; p.c
   addLog(`🪨 ${p.name} cestou podzemím nasbíral pytel uhlí (má ${p.coal}).`); }
 // v17 Everett – Podvodník u kostek: v herně vždy +1 k hodu (podvádí). Výhra = 6Z (místo běžné výplaty 5Z, sázka 2Z platí), ale dostane přes hubu: −2 ❤️ (nikdy pod 1 – rána pěstí nezabíjí). Prohra jako obvykle.
 const CHEAT_HEROES = new Set(['everett']);
+// v22 Rhina – Krádež na tržišti: 1 předmět zdarma jednou za 3 kola; vybírá z nabídky, kterou vidí (oranžové od L3, fialové od L6).
+const THIEF_HEROES = new Set(['rhina']), STEAL_CD = 3;
+const isThief = p => !!p && THIEF_HEROES.has(p.hero);
+const stealReady = p => isThief(p) && (p.stealAt || 0) <= S.round;
+function stealOpts(p, l) {
+  if (!stealReady(p) || !l) return [];
+  return shopView(p, l.id + ':trziste', SHOP_SLOTS.trziste).map(id => { const it = ITEM_BY_ID[id], w = canWear(p, it);
+    return { id: 'steal:' + id, item: id, price: 0, label: `🤏 Ukrást: ${it.name}${w ? ' 🎒' : ''}`, cls: 't-' + it.tier + ' steal', title: `Krádež zdarma (další až za ${STEAL_CD} kola) – ${TIER[it.tier].n}${w ? ', nekompatibilní' : ''}` }; });
+}
+const stealBadge = p => !isThief(p) ? '' : stealReady(p) ? ' · <span class="pc-steal ready" title="Rhina může na Tržišti zdarma ukrást 1 předmět">🤏💰 Krádež připravena</span>' : ` · <span class="pc-steal" title="Další krádež na Tržišti">🤏 Krádež v kole ${p.stealAt}</span>`;
 const isCheat = p => !!p && CHEAT_HEROES.has(p.hero);
 const CHEAT_WIN = 6, CHEAT_PUNCH = 2;
 function cheatDice(p, r) { const t = Math.min(6, r) + 1; p.gold -= 2;
@@ -382,7 +397,7 @@ const TIER = { basic: { n: 'Základní', c: 'yellow', bonus: '+1 hlavní vlastno
 // v8: 4 volná místa výbavy (nasazeno) + 4 místa v brašně. Typ předmětu smí být nasazen jen jednou; ruce řeší pravidla zbraní.
 const SLOT_NAME = { head: 'Hlava', body: 'Tělo', hands: 'Ruce', feet: 'Nohy', jewel: 'Šperk', trinket: 'Talisman', main: 'Zbraň / hlavní ruka', off: 'Druhá ruka' };
 const SLOT_IC = { head: '🪖', body: '🥋', hands: '🧤', feet: '🥾', jewel: '💍', trinket: '💀', main: '🗡️', off: '🛡️' };
-const ROLE_PL = { tank: 'Tankové', assassin: 'Assassini', hunter: 'Lovec', diplomat: 'Diplomaté', mage: 'Kouzelníci', vampire: 'Olgrich', fighter: 'Chadimpetro', hybrid: 'Finn & Bruine' };
+const ROLE_PL = { tank: 'Tankové', assassin: 'Assassini', hunter: 'Lovci', diplomat: 'Diplomaté', mage: 'Kouzelníci', vampire: 'Olgrich', fighter: 'Chadimpetro', hybrid: 'Finn & Bruine' };
 const ITEM_CAP = 2; // předměty dávají dohromady nejvýš +2 k hlavní vlastnosti
 const EQUIP_MAX = 4, BAG_MAX = 4;
 const PAWN = { basic: 3, mid: 5, epic: 10 }; // výkupní cena (zastavárna)
@@ -522,7 +537,7 @@ function openItem(id, shop) {
   const it = ITEM_BY_ID[id], o = ownerOf(id), me = cur();
   const box = $('item-body'); box.innerHTML = itemCardHTML(it, o ? o.p : me);
   const act = el('div', 'item-actions');
-  if (shop && !o) act.appendChild(el('div', 'item-owner item-shop', `🛒 V nabídce za <b>${shop.price} 🪙</b> – vybráno; nákup potvrdíš tlačítkem v kartě obchodu.`));
+  if (shop && !o) act.appendChild(el('div', 'item-owner item-shop', shop.steal ? '🤏💰 Rhina ho může <b>ukrást zdarma</b> – vybráno; krádež potvrdíš tlačítkem v kartě Tržiště.' : `🛒 V nabídce za <b>${shop.price} 🪙</b> – vybráno; nákup potvrdíš tlačítkem v kartě obchodu.`));
   if (o) act.appendChild(el('div', 'item-owner', `Vlastní: <b>${o.p.name}</b> – ${o.where === 'bag' ? `🎒 v brašně (${o.p.bag.length}/${BAG_MAX})` : `🧍 nasazeno (${o.p.equip.length}/${EQUIP_MAX})`}`));
   const busy = S.npc || S.pending || S.combat;
   const re = () => { renderAll(); save(); if (!NET.role || NET.role === 'host') openItem(id); else $('item-modal').classList.add('hidden'); };
@@ -1369,6 +1384,7 @@ function renderBoardState() {
       d.title = `${p.name} (${h.name})${hasMount(p) ? ' · ' + mountName(p) : ''}${shipOf(p) ? ' · ⛵ ' + SHIPS[shipOf(p)].n : ''}`;
       if (shipOf(p)) { const sb = el('i', 'pawn-ship'); sb.style.backgroundImage = `url(${SHIPS[shipOf(p)].tok})`; d.appendChild(sb); }
       if (mountOf(p)) { const mb = el('i', 'pawn-mount'); mb.style.backgroundImage = `url(${MOUNTS[mountOf(p)].tok})`; d.appendChild(mb); }
+      if (stealReady(p)) { const sb = el('i', 'pawn-steal'); sb.textContent = '🤏💰'; sb.title = 'Krádež na Tržišti připravena'; d.appendChild(sb); d.title += ' · 🤏💰 krádež připravena'; }
       pw.appendChild(d);
     });
   });
@@ -1384,7 +1400,7 @@ function renderPlayers() {
       <div class="stats"><span title="Životy">❤️ ${p.hp}/${MAX_HP}</span><span title="Zlaťáky">🪙 ${p.gold}</span><span title="Karma (může být i záporná)" class="${p.karma < 0 ? 'neg' : ''}">☯️ ${p.karma}</span><span title="Level · zkušenosti${p.level >= MAX_LEVEL ? ' – maximální level' : ` (další level při ${xpNeed(p)})`}">⭐ ${p.level} <small class="xp">${p.level >= MAX_LEVEL ? 'MAX' : `(${p.xp || 0}/${xpNeed(p)} zk.)`}</small></span></div>
       <div class="hstats" title="Statistiky jsou prozatímní. Hlavní vlastnost (zvýrazněná): ${TRAIN_ALLOW[roleOf(p)].map(x => STAT_NAME[x]).join(', ')} – placený trénink 1× za level. Vedlejší rostou samy +1 každé 2 levely.">${['boj', 'obr', 'int', 'cha'].map(k => `<span class="${isMain(p, k) ? 'tr' : ''}">${isMain(p, k) ? '★' : ''}${STAT_IC[k]} ${STAT_NAME[k]} <b>${stat(p, k)}</b></span>`).join('')}${stat(p, 'spec') ? `<span class="tr">✦ Specializace <b>${stat(p, 'spec')}</b></span>` : ''}</div>
       <div class="hpbar"><i style="width:${p.hp / MAX_HP * 100}%"></i></div>
-      <div class="loc">📍 ${BY_ID[p.loc].name}${hasMount(p) ? ` · 🐾 ${mountName(p)}` : ''}${shipOf(p) ? ` · ⛵ ${SHIPS[shipOf(p)].n}` : ''}${isMole(p) ? ` · <span class="pc-coal" title="Pytle uhlí – prodej jen na Tržišti, ${COAL_PRICE}Z za pytel">🪨 <b>${p.coal || 0}</b></span>` : ''} · <span class="pc-gp${p.gp >= WIN_GP ? ' win' : ''}" title="Grumpstone body – cíl ${WIN_GP}">🔷 GB <b>${p.gp}</b>/${WIN_GP}</span>${p.finale ? ' <span class="pc-finale">🏁 Finální výzva</span>' : ''}</div>
+      <div class="loc">📍 ${BY_ID[p.loc].name}${hasMount(p) ? ` · 🐾 ${mountName(p)}` : ''}${shipOf(p) ? ` · ⛵ ${SHIPS[shipOf(p)].n}` : ''}${stealBadge(p)}${isMole(p) ? ` · <span class="pc-coal" title="Pytle uhlí – prodej jen na Tržišti, ${COAL_PRICE}Z za pytel">🪨 <b>${p.coal || 0}</b></span>` : ''} · <span class="pc-gp${p.gp >= WIN_GP ? ' win' : ''}" title="Grumpstone body – cíl ${WIN_GP}">🔷 GB <b>${p.gp}</b>/${WIN_GP}</span>${p.finale ? ' <span class="pc-finale">🏁 Finální výzva</span>' : ''}</div>
       ${tr ? `<div class="inv">Trénink: ${tr}</div>` : ''}
       ${p.intel.length ? `<div class="inv">🔎 ${p.intel.slice(-2).join('; ')}</div>` : ''}
       ${statusHTML(p)}${inventoryHTML(p, i === S.cur && !S.npc && !S.pending && !S.combat)}
@@ -1579,7 +1595,7 @@ function passTurn() {
 // ---------- NPC KARTY (fáze na konci tahu, po pochodech a akcích lokací) ----------
 const NPC = window.GS_NPC || [];
 const NPC_BY_ID = Object.fromEntries(NPC.map(c => [c.id, c]));
-const FEMALE = new Set(['elara', 'silvia', 'zara']);
+const FEMALE = new Set(['elara', 'silvia', 'zara', 'rhina']);
 const NPC_KIND = { boj: { n: 'Boj', ic: '⚔️' }, charisma: { n: 'Charisma', ic: '💬' }, magie: { n: 'Magie', ic: '🔮' } };
 const npcStatKey = (p, kind) => kind === 'boj' ? combatKey(p) : kind === 'charisma' ? 'cha' : 'int';
 const NPC_DIFF = 6, NPC_DIFF_BOSS = 8; // v11: + (level − 1) – úkoly rostou s hrdinou; na kostce aspoň 3
@@ -1862,7 +1878,7 @@ function renderPanel() {
         const b = el('button', (selOpt === op.id ? 'on' : '') + (lock ? ' lockd' : '') + (op.cls ? ' ' + op.cls : ''), (lock ? '🚫 ' : '') + op.label); b.dataset.opt = op.id;
         if (op.title) b.title = op.title;
         if (lock) { b.disabled = true; b.title = lock; }
-        b.onclick = ev => { ev.stopPropagation(); if (lock) return; selOpt = op.id; renderPanel(); if (op.item) openItem(op.item, { price: op.price }); }; o.appendChild(b); });
+        b.onclick = ev => { ev.stopPropagation(); if (lock) return; selOpt = op.id; renderPanel(); if (op.item) openItem(op.item, { price: op.price, steal: String(op.id).startsWith('steal:') }); }; o.appendChild(b); });
       if (opts.some(op => op.item) || ['kovarna', 'trziste', 'cerny_trh'].includes(aid)) o.insertAdjacentHTML('beforeend', LOCK_NOTE(p));
       c.appendChild(o);
     }
@@ -2088,6 +2104,7 @@ function aiLocValue(p, loc) {
     if (ab.includes('mount') && !ABILITIES.mount.req(p) && !ABILITIES.mount.classLock(p)) v = Math.max(v, 9);
     if (p.gold >= 3 && itemBonus(p).raw < ITEM_CAP && ab.some(a => ['kovarna', 'trziste', 'cerny_trh'].includes(a))) v = Math.max(v, 4);
     if (isMole(p) && (p.coal || 0) >= 2 && ab.includes('trziste')) v = Math.max(v, 3 + p.coal);
+    if (stealReady(p) && ab.includes('trziste')) v = Math.max(v, 6); // v22 Rhina míří na tržiště, když může krást
     if (p.gold < 4) v = Math.max(v, ab.includes('prace') ? 3.5 : 1.5);
     v = Math.max(v, 1.5);
   } else v = Math.max(v, 2.2);
@@ -2140,6 +2157,10 @@ function aiActions(p) {
   const can = (aid, opt) => { const a = ABILITIES[aid]; if (!a) return false; if (S.dayStay && (S.dayDone || []).includes(aid)) return false; if (a.classLock && a.classLock(p)) return false; return !(a.req && a.req(p, loc, opt)); };
   abilitiesOf(loc).forEach(aid => {
     if (aid === 'boss') { const b = bossAt(loc.id), w = b && can('boss') ? aiBossWorth(p, b) : 0; if (w > 0) out.push({ aid, v: 10 + w }); return; }
+    if (aid === 'trziste' && stealReady(p)) { // v22 Rhina krade, kdykoli může – nejcennější kousek, raději kompatibilní
+      const sc = o => { const it = ITEM_BY_ID[o.item]; return ({ epic: 3, mid: 2, basic: 1 }[it.tier]) * 2 + (canWear(p, it) ? 0 : 1); };
+      const so = stealOpts(p, loc).filter(o => can('trziste', o.id)).sort((a, b) => sc(b) - sc(a));
+      if (so.length) { out.push({ aid, opt: so[0].id, v: 9 + sc(so[0]) / 2 }); return; } }
     if (['kovarna', 'trziste', 'cerny_trh'].includes(aid)) { const s = aiShopPick(p, aid, loc); if (s && can(aid, s.opt)) out.push(s); return; }
     if (!can(aid, aid === 'zbrojmistr' ? (aiTrainOpt(p, ['zbrojmistr']) || {}).opt : aid === 'vestkyne' ? 'change' : null)) return;
     switch (aid) {
@@ -2862,4 +2883,5 @@ function bind() {
 
 bind(); initTitle();
 window.GS = { get NET() { return NET; }, NR, netMode, netRelayGuest, netHost, netJoin, netStart, netAddAI, netHandover, netLeave, netRemoveSeat, netIce, netNorm, isGuest, myTurnNet, itemAct, tradePropose, tradeAnswer, combatDrink, setNpcOn, BOSS_RESPAWN, bossRespawnTick, pendingRespawns, bossRespawnAt, finishBossFight, isAI, focusMatch, finishNpc, combatRoll, ROLE, HEROES, aiStep, aiRun, aiKick, aiSetSpeed, aiEstimate, aiActions, aiGoal, aiCfg, AI_DIFFS, get aiStats() { return aiStats; }, get aiDelay() { return aiDelay; }, useAbility, npcPick, npcRoll, npcDecide, npcQuest, overflowSell, setAiCount, setGameMode, get setup() { return setup; }, renderSetup, newGame, startGame, isCheat, CHEAT_WIN, CHEAT_PUNCH, rollPending, seaWhy, isMole, tunnelVia, COAL_PRICE, collectCoal, coalOpts, MOLE_WATER, LADJ, canSwim, SWIM_HEROES, heroById, WIN_GP, checkFinale, openFinale, startFinale, showVictory, declareWinner, chaOnlyWhy, SHIPS, SHIP_PRICE, shipOf, moveKind, boardShip, openShipModal, shipWhy, reachable, OFFSHORE, PORTS, MAINLAND, xpNeed, addXp, MAX_LEVEL, XP_PER_LEVEL, shopStock, shopView, SHOP_SLOTS, PRICE, TIER_LV, BM_PRICE, arenaDiff, npcDiff, MIN_DIE, mountName, isNatural, hasMount, MAX_PLAYERS, forceQuestStat: v => { FORCE_QSTAT = v; }, completeQuests, MOUNTS, stepsOf, openMountModal, closePanel, placeBoss: (id, loc, pi) => { S.bosses = S.bosses || {}; const b = BOSS_BY_ID[id]; S.bosses[id] = { sh: b.sh, hp: b.hp, dead: false, active: true, loc, for: pi == null ? null : pi, since: S.round }; renderAll(); }, bossRoundStart, spawnBossFor, activeBosses, tierForLevel, focusOfHero, unforce: () => { FORCE_ROLLS = []; }, CB, BOSS_BY_ID, bossState, bossAt, startBossFight, startPvp, pvpBlock, cardPool, atkKeyOf, closeCombat, forceCards: a => { FORCE_CARDS = a; }, forceLoot: v => { FORCE_LOOT = v; }, approachOf, heroCtx, combatChoose, EQUIP_MAX, BAG_MAX, PAWN, TRADE_MULT, loadoutProblem, itemType, unequipItem, sellItem, migrateGear, hasRoom, renderOverflow, swapOptions, force: a => FORCE_ROLLS.push(...a), forceSearch: id => { FORCE_SEARCH = id; }, ITEMS, ITEM_BY_ID, giveItem, equipItem, canWear, itemBonus, tradeBlock, openTrade, SEARCH, addStatus, openItem, makeDie, get S() { return S; }, ADJ, BY_ID, ABILITIES, NPC, moveTo, stay, endTurn, passTurn, heroStat, stat, combatKey, trainLock, makeQuest, distances, rollAbilities, renderAll, openPanel }; // pro testy // pro testy
+Object.assign(window.GS, { stealReady, stealOpts, STEAL_CD, isThief }); // v22 Rhina – pro testy
 })();

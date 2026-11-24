@@ -546,3 +546,10 @@ body.not-mine #side,body.not-mine #trade.net-allow{pointer-events:auto}
 /* v20.2: lišta počítače nesmí zakrývat tlačítka v oknech (Pokračovat apod.) */
 body:has(#combat:not(.hidden)) .ai-bar.idle,body:has(#panel:not(.hidden)) .ai-bar.idle,body:has(#npc:not(.hidden)) .ai-bar.idle,body:has(#menu:not(.hidden)) .ai-bar.idle,body:has(.mount-modal) .ai-bar.idle,body:has(.help:not(.hidden)) .ai-bar.idle{display:none}
 body:has(#combat:not(.hidden)) .ai-bar:not(.idle),body:has(#panel:not(.hidden)) .ai-bar:not(.idle),body:has(#npc:not(.hidden)) .ai-bar:not(.idle),body:has(.mount-modal) .ai-bar:not(.idle){bottom:auto;top:6px}
+
+/* v22 Rhina – odznak krádeže */
+.pawn-steal{position:absolute;left:-10px;top:-9px;font-style:normal;font-size:10px;line-height:1;padding:2px 3px;border-radius:9px;background:linear-gradient(#ffe27a,#c8921b);border:1px solid #5a3b00;box-shadow:0 1px 3px #000;white-space:nowrap;animation:stealPulse 1.6s ease-in-out infinite}
+@keyframes stealPulse{50%{transform:scale(1.15)}}
+.pc-steal{font-size:.85em;opacity:.75}
+.pc-steal.ready{opacity:1;font-weight:700;color:#ffd75e;text-shadow:0 0 4px #7a5200}
+.opts button.steal,.opt.steal{outline:2px dashed #ffd75e;outline-offset:-3px}

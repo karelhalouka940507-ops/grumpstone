@@ -182,6 +182,7 @@
     C.heroDef += m.defNext || 0; m.defNext = 0;
     C.heroAtk += m.atkNext || 0; m.atkNext = 0;
     C.bAtk += m.bossAtkNext || 0; m.bossAtkNext = 0;
+    if (m.bossDefNext) { C.bDef += m.bossDefNext; L.push(`🏹 Zraněný soupeř: obrana v tomto kole ${m.bossDefNext < 0 ? "−" + (-m.bossDefNext) : "+" + m.bossDefNext}.`); m.bossDefNext = 0; } // v22 Rhina – Smrtící šíp
     const noCard = m.noCardAtt; m.noCardAtt = 0;
     const townOk = f => !f.town || F.town;
     // efekty karty před útokem
@@ -246,10 +247,12 @@
         const ve = fx1(c, 'vs_evil'); if (ve && b.evil) { dmg += ve.v; L.push(`✝️ Proti zlu +${ve.v} zranění.`); }
         const md = fx1(c, 'more_dmg'); if (md && F.r < F.cards.length - 1) { dmg += md.v; L.push(`⛏️ ${c.name}: v ruce máš další kartu útoku – +${md.v} zranění.`); }
         const rg = fx1(c, 'rage'); if (rg && h.hp <= rg.below && dmg > 0) { dmg *= 2; L.push(`😤 ${c.name}: máš ${h.hp} ≤ ${rg.below} životů – dvojnásobné zranění (${dmg}).`); }
+        const wr = fx1(c, 'wrath'); if (wr && h.hp <= wr.below) { dmg += wr.v; L.push(`🌿 ${c.name}: máš ${h.hp} ≤ ${wr.below} životů – +${wr.v} zranění.`); } // v22 Rhina
       }
       if (C.half && specOn(F) && dmg > 0) { dmg = Math.floor(dmg / 2); L.push(`🛡️ ${C.half}: jen polovina zranění.`); }
       if (fx.heroHit && specOn(F)) dmg = fx.heroHit(F, C, dmg, L);
       if (dmg > 0) L.push(`➡️ Boss ztrácí ${hitBoss(F, dmg, pierce)}.`);
+      const dd = fx1(c, 'hit_defdown'); if (dd && dmg > 0) { m.bossDefNext = (m.bossDefNext || 0) - dd.v; L.push(`🏹 ${c.name}: soupeř je zraněný – v příštím kole má obranu −${dd.v}.`); } // v22 Rhina
       if (C.bossRaw) { b.hp -= C.bossRaw; C.bossRaw = 0; }
       const bd2 = fx1(c, 'boss_dmg'); if (bd2) L.push(`💰 ${c.name}: boss −${bd2.v} (${hitBoss(F, bd2.v)}).`);
       const sh = fx1(c, 'shame'); if (sh) L.push(`🖋️ Zesměšnění: −${sh.v * F.used} (${hitBoss(F, sh.v * F.used)}).`);
@@ -271,6 +274,7 @@
       if (C.noAtk && specOn(F)) { L.push(`👑 ${C.noAtk}.`); return; }
       const dice = { b: bd, x: xd };
       const list = (C.attacks && specOn(F)) ? C.attacks : [{ v: null, die: 'b' }];
+      const gt = fx1(c, 'grit'); if (gt) { m.atkNext = (m.atkNext || 0) + gt.v; L.push(`💪 ${c.name}: soupeř zaútočil – v příštím kole máš +${gt.v} k Síle.`); } // v22 Rhina
       list.forEach((a, i) => {
         if (h.hp <= 0) return;
         let base = a.v == null ? b.atk[ri] : a.v; let ba2 = base + m.bossAtk + C.bAtk - queen;
@@ -282,6 +286,7 @@
         if (d > 0 && m.block1 === F.r) { m.block1 = null; L.push('💧 Vodní štít zastavil první poškození v tomto kole!'); d = 0; }
         if (d > 0 && m.dodge) { m.dodge--; L.push('💨 Uhnul jsi celému útoku!'); d = 0; }
         const cap = fx1(c, 'cap'); if (cap && d > cap.v) { L.push(`🛡️ Štít předků: nejvýš ${cap.v} zranění.`); d = cap.v; }
+        if (d > 0 && fx1(c, 'halfdmg')) { const o = d; d = Math.ceil(d / 2); L.push(`💨 ${c.name}: uhýbáš – jen polovina zranění (${o} → ${d}).`); } // v22 Rhina
         const ld = fx1(c, 'lessdmg'); if (d > 0 && ld) { const x = Math.min(d, ld.v); d -= x; L.push(`🛡️ ${c.name}: o ${x} méně zranění.`); }
         if (d > 0 && m.buffer) { const x = Math.min(d, m.buffer); m.buffer -= x; d -= x; L.push(`🛡️ Pohlceno ${x} zranění.`); }
         if (d > 0) { h.hp = Math.max(0, h.hp - d); L.push(`➡️ Ztrácíš <b>${d} ❤️</b> (zbývá ${h.hp}).`); if (fx.onHit && specOn(F)) fx.onHit(F, C, L, bt); }
@@ -325,7 +330,7 @@
       const ysw = fx1(yc, 'sweet'); if (ysw && (!ysw.town || y.town)) att -= ysw.v + (ysw.vs || 0); // v17 Medový jazyk: v souboji útočí soupeř vždy na Everetta → −4
       const ypu = fx1(yc, 'puppy'); if (ypu && (!ypu.town || y.town)) att -= ypu.v; // v17 Štěněcí nevinnost (hrdinové emoce mají)
       const ac = fx1(c, 'acid'), su = fx1(c, 'sunder'), gy = fx1(yc, 'guard');
-      const react = ['dodge', 'block1', 'immune', 'buffer', 'cap', 'lessdmg'].some(t => fx1(yc, t)); // v16 Krtčí podkopání: blokovat jde jen reakční kartou
+      const react = ['dodge', 'block1', 'immune', 'buffer', 'cap', 'lessdmg', 'halfdmg'].some(t => fx1(yc, t)); // v16 Krtčí podkopání: blokovat jde jen reakční kartou
       const und = (fx1(c, 'undermine') || fx1(c, 'betray')) && !react; // v17 Šlechtická zrada = stejně jako Krtčí podkopání
       const ks = fx1(c, 'kiss'), tn = fx1(c, 'thorn');
       let ydef = und ? 0 : y.def + yc.deff + (fx1(yc, 'buff') ? fx1(yc, 'buff').def : 0) + (fx1(yc, 'rest') ? fx1(yc, 'rest').def : 0) + (gy ? gy.v : 0) - (ac ? ac.v : 0) - (su ? su.v : 0) - (ks && y.hp > ks.v ? ks.dv : 0);
@@ -336,6 +341,7 @@
         has(c, 'win_dmg').forEach(f => { if ((!f.town || x.town) && mg >= (f.min || 1)) { d += f.v; ex.push(`${c.name} +${f.v}`); } });
         const ve = fx1(c, 'vs_evil'); if (ve && y.evil) { d += ve.v; ex.push(`proti zlu +${ve.v}`); }
         const rg = fx1(c, 'rage'); if (rg && x.hp <= rg.below && d > 0) { d *= 2; ex.push(`${c.name}: dvojnásobné zranění`); }
+        const wr = fx1(c, 'wrath'); if (wr && x.hp <= wr.below) { d += wr.v; ex.push(`${c.name} +${wr.v}`); }
         if (fx1(c, 'win_half')) { const hf = Math.floor(Math.max(0, y.hp - d) / 2); d += hf; ex.push(`polovina životů +${hf}`); }
       }
       const wd = fx1(c, 'win_dot'), st = wd && wd.st && mg >= (wd.min || 1) ? wd.st : null; if (st) ex.push(`${wd.n}: soupeř dostává stav`);
@@ -352,6 +358,7 @@
       if (d > 0 && fx1(c, 'block1')) { n.push('vodní štít'); d = 0; }
       if (d > 0 && fx1(c, 'dodge')) { n.push('uhnul'); d = 0; }
       const cap = fx1(c, 'cap'); if (cap && d > cap.v) { d = cap.v; n.push(`štít max ${cap.v}`); }
+      if (d > 0 && fx1(c, 'halfdmg')) { d = Math.ceil(d / 2); n.push('uhnula – polovina'); }
       const ld = fx1(c, 'lessdmg'); if (ld && d > 0) { d = Math.max(0, d - ld.v); n.push(`−${ld.v}`); }
       const bf = has(c, 'buffer').reduce((s, f) => s + f.v, 0); if (bf && d > 0) { const z = Math.min(d, bf); d -= z; n.push(`pohltil ${z}`); }
       return [d, n]; };
