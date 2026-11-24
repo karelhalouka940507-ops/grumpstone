@@ -543,3 +543,6 @@ body.not-mine #side,body.not-mine #trade.net-allow{pointer-events:auto}
 .ios-share{display:inline-block;border:1px solid #888;border-radius:4px;padding:0 4px}
 .nb-code{white-space:nowrap}
 @media (max-width:700px){.net-bar{top:auto;bottom:14px;font-size:13.5px;padding:6px 12px}}
+/* v20.2: lišta počítače nesmí zakrývat tlačítka v oknech (Pokračovat apod.) */
+body:has(#combat:not(.hidden)) .ai-bar.idle,body:has(#panel:not(.hidden)) .ai-bar.idle,body:has(#npc:not(.hidden)) .ai-bar.idle,body:has(#menu:not(.hidden)) .ai-bar.idle,body:has(.mount-modal) .ai-bar.idle,body:has(.help:not(.hidden)) .ai-bar.idle{display:none}
+body:has(#combat:not(.hidden)) .ai-bar:not(.idle),body:has(#panel:not(.hidden)) .ai-bar:not(.idle),body:has(#npc:not(.hidden)) .ai-bar:not(.idle),body:has(.mount-modal) .ai-bar:not(.idle){bottom:auto;top:6px}
