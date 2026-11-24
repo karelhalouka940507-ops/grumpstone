@@ -9,12 +9,17 @@
     m = document.createElement('div'); m.id = 'install-hint'; m.className = 'mount-modal';
     m.innerHTML = `<div class="mount-sheet install-sheet"><div class="mount-h">📲 Grumpstone na plochu</div>
       ${W.ios ? `<ol class="install-steps"><li>Otevři tuhle stránku v <b>Safari</b>.</li><li>Klepni dole na <b>Sdílet</b> <span class="ios-share">⬆︎</span>.</li><li>Vyber <b>Přidat na plochu</b> a potvrď <b>Přidat</b>.</li><li>Hru pak spouštěj ikonou <b>Grumpstone</b>.</li></ol>`
-        : `<ol class="install-steps"><li>V Chrome otevři nabídku <b>⋮</b> (vpravo nahoře).</li><li>Klepni na <b>Nainstalovat aplikaci</b> / <b>Přidat na plochu</b>.</li><li>Hru pak spouštěj ikonou <b>Grumpstone</b>.</li></ol>`}
+        : `<ol class="install-steps"><li><b>Chrome:</b> nabídka <b>⋮</b> vpravo nahoře → <b>Přidat na plochu</b> nebo <b>Nainstalovat aplikaci</b>.</li><li><b>Samsung Internet:</b> nabídka <b>☰</b> dole → <b>Přidat stránku do</b> → <b>Domovská obrazovka</b>.</li><li>Pokud máš odkaz otevřený v Messengeru, WhatsAppu nebo Gmailu, nejdřív ho otevři v Chromu (⋮ → <b>Otevřít v Chromu</b>).</li><li>Hru pak spouštěj ikonou <b>Grumpstone</b>.</li></ol>`}
       <div class="mount-act"><button class="btn btn-gold" id="install-ok">Rozumím</button></div></div>`;
     document.body.appendChild(m); $('install-ok').onclick = () => m.remove();
   }
   async function install() {
-    if (W.prompt) { const p = W.prompt; W.prompt = null; p.prompt(); try { const r = await p.userChoice; if (r && r.outcome === 'accepted') showInstall(false); } catch (e) {} return; }
+    if (W.prompt) {
+      const p = W.prompt; W.prompt = null; let done = false;
+      const fb = setTimeout(() => { if (!done) hint(); }, 2500);
+      try { await p.prompt(); const r = await p.userChoice; done = true; clearTimeout(fb); if (r && r.outcome === 'accepted') { showInstall(false); return; } } catch (e) { done = true; clearTimeout(fb); }
+      hint(); return;
+    }
     hint();
   }
   W.install = install; W.hint = hint;
@@ -22,7 +27,7 @@
   window.addEventListener('appinstalled', () => { W.prompt = null; showInstall(false); });
   document.addEventListener('DOMContentLoaded', () => {
     ['btn-install', 'menu-install'].forEach(id => { const b = $(id); if (b) b.onclick = () => { const m = $('menu'); if (m) m.classList.add('hidden'); install(); }; });
-    if (!standalone() && /^https?:/.test(location.protocol) && W.ios) showInstall(true);
+    if (!standalone() && /^https?:/.test(location.protocol)) showInstall(true);
   });
   function updToast(reg) {
     if ($('upd-toast')) return;
