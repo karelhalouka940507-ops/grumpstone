@@ -553,3 +553,8 @@ body:has(#combat:not(.hidden)) .ai-bar:not(.idle),body:has(#panel:not(.hidden)) 
 .pc-steal{font-size:.85em;opacity:.75}
 .pc-steal.ready{opacity:1;font-weight:700;color:#ffd75e;text-shadow:0 0 4px #7a5200}
 .opts button.steal,.opt.steal{outline:2px dashed #ffd75e;outline-offset:-3px}
+
+/* v23 Šnekryt – únava */
+.pawn-fat{position:absolute;right:-9px;top:-9px;font-style:normal;font-size:12px;line-height:1;padding:1px 2px;border-radius:9px;background:#3b5bdb;border:1px solid #102060;box-shadow:0 1px 3px #000;animation:stealPulse 1.6s ease-in-out infinite}
+.pc-fat{font-size:.85em}
+.pc-fat.warn{font-weight:700;color:#ff8a65;text-shadow:0 0 4px #600}

@@ -205,6 +205,8 @@
     const op = fx1(c, 'opener'); if (op && F.r === 0) { att += op.v; extraNote.push(`zahájení boje +${op.v}`); }
     const dr = fx1(c, 'drain'); if (dr) { m.drain = { v: dr.v, left: dr.n || 2 }; L.push(`🩸 ${c.name}: ${dr.n || 2} kola bude boss na konci kola ztrácet ${dr.v} a ty ho získáš.`); }
     // v15 Velebníček Vodička: Vodní štít, Imunita poškození, Uzdravení ocasu
+    const du = fx1(c, 'defup'); if (du) { def += du.v; L.push(`🪨 ${c.name}: do konce kola +${du.v} k Obraně.`); } // v23 Šnekryt
+    if (fx1(c, 'fortress')) { m.immune = F.r; L.push(`🐌 ${c.name}: schovává se celý do ulity – útok soupeře v tomto kole nezpůsobí žádné poškození.`); } // v23 Šnekryt
     if (fx1(c, 'block1')) { m.block1 = F.r; L.push(`💧 ${c.name}: první poškození, které bys v tomto kole utrpěl, se zastaví.`); }
     const im = fx1(c, 'immune'); if (im) { m.immune = F.r; C.bAtk -= im.v; m.bossAtkNext = (m.bossAtkNext || 0) - im.v; L.push(`🫧 ${c.name}: v tomto kole tě nepřítel nezraní a jeho útoky jsou o ${im.v} slabší v tomto i příštím kole.`); }
     const hl = fx1(c, 'heal'); if (hl) { const o = h.hp; h.hp = Math.min(h.maxHp || 10, h.hp + hl.v); L.push(`💚 ${c.name}: vyléčíš si ${h.hp - o} ❤️ (${o} → ${h.hp}).`); }
@@ -256,6 +258,7 @@
       if (C.bossRaw) { b.hp -= C.bossRaw; C.bossRaw = 0; }
       const bd2 = fx1(c, 'boss_dmg'); if (bd2) L.push(`💰 ${c.name}: boss −${bd2.v} (${hitBoss(F, bd2.v)}).`);
       const sh = fx1(c, 'shame'); if (sh) L.push(`🖋️ Zesměšnění: −${sh.v * F.used} (${hitBoss(F, sh.v * F.used)}).`);
+      if (win) C.won = true;
       if (win) {
         if (fx1(c, 'win_half') && b.hp > 0) { const x = Math.floor(b.hp / 2); b.hp -= x; L.push(`🌗 Polovina životů bosse: −${x} životů.`); }
         has(c, 'win_noatk').forEach(f => { if (townOk(f) && margin >= (f.min || 1)) { m.noAtkNext = true; L.push('⛓️ Boss v příštím kole neútočí.'); } });
@@ -288,7 +291,10 @@
         const cap = fx1(c, 'cap'); if (cap && d > cap.v) { L.push(`🛡️ Štít předků: nejvýš ${cap.v} zranění.`); d = cap.v; }
         if (d > 0 && fx1(c, 'halfdmg')) { const o = d; d = Math.ceil(d / 2); L.push(`💨 ${c.name}: uhýbáš – jen polovina zranění (${o} → ${d}).`); } // v22 Rhina
         const ld = fx1(c, 'lessdmg'); if (d > 0 && ld) { const x = Math.min(d, ld.v); d -= x; L.push(`🛡️ ${c.name}: o ${x} méně zranění.`); }
+        if (d > 0 && fx1(c, 'shellrest') && !C.won) { L.push(`😴 ${c.name}: nevyhrál jsi kolo – zůstáváš v krunýři a neztrácíš žádné životy.`); d = 0; } // v23 Šnekryt
+        if (d > 0 && h.shell && !m.shellUsed) { m.shellUsed = true; d -= 1; L.push('🐌 Ulita: první zranění od bosse v tomto boji −1.'); } // v23 Šnekryt
         if (d > 0 && m.buffer) { const x = Math.min(d, m.buffer); m.buffer -= x; d -= x; L.push(`🛡️ Pohlceno ${x} zranění.`); }
+        if (d > 0 && fx1(c, 'patience') && !C.patience) { C.patience = true; const pv = fx1(c, 'patience').v; m.bossAtkNext = (m.bossAtkNext || 0) - pv; L.push(`🧘 ${c.name}: soupeř tě zranil – jeho příští útok má −${pv} k Síle.`); } // v23 Šnekryt
         if (d > 0) { h.hp = Math.max(0, h.hp - d); L.push(`➡️ Ztrácíš <b>${d} ❤️</b> (zbývá ${h.hp}).`); if (fx.onHit && specOn(F)) fx.onHit(F, C, L, bt); }
         else L.push('🛡️ Ubránil ses – bez zranění.');
       });
@@ -330,10 +336,10 @@
       const ysw = fx1(yc, 'sweet'); if (ysw && (!ysw.town || y.town)) att -= ysw.v + (ysw.vs || 0); // v17 Medový jazyk: v souboji útočí soupeř vždy na Everetta → −4
       const ypu = fx1(yc, 'puppy'); if (ypu && (!ypu.town || y.town)) att -= ypu.v; // v17 Štěněcí nevinnost (hrdinové emoce mají)
       const ac = fx1(c, 'acid'), su = fx1(c, 'sunder'), gy = fx1(yc, 'guard');
-      const react = ['dodge', 'block1', 'immune', 'buffer', 'cap', 'lessdmg', 'halfdmg'].some(t => fx1(yc, t)); // v16 Krtčí podkopání: blokovat jde jen reakční kartou
+      const react = ['dodge', 'block1', 'immune', 'buffer', 'cap', 'lessdmg', 'halfdmg', 'fortress', 'defup', 'shellrest'].some(t => fx1(yc, t)); // v16 Krtčí podkopání: blokovat jde jen reakční kartou
       const und = (fx1(c, 'undermine') || fx1(c, 'betray')) && !react; // v17 Šlechtická zrada = stejně jako Krtčí podkopání
       const ks = fx1(c, 'kiss'), tn = fx1(c, 'thorn');
-      let ydef = und ? 0 : y.def + yc.deff + (fx1(yc, 'buff') ? fx1(yc, 'buff').def : 0) + (fx1(yc, 'rest') ? fx1(yc, 'rest').def : 0) + (gy ? gy.v : 0) - (ac ? ac.v : 0) - (su ? su.v : 0) - (ks && y.hp > ks.v ? ks.dv : 0);
+      let ydef = und ? 0 : y.def + yc.deff + (fx1(yc, 'defup') ? fx1(yc, 'defup').v : 0) + (fx1(yc, 'buff') ? fx1(yc, 'buff').def : 0) + (fx1(yc, 'rest') ? fx1(yc, 'rest').def : 0) + (gy ? gy.v : 0) - (ac ? ac.v : 0) - (su ? su.v : 0) - (ks && y.hp > ks.v ? ks.dv : 0);
       const thorned = !!(tn && ydef >= tn.min); if (thorned) ydef = Math.max(0, ydef - tn.v);
       const skipA = !!fx1(c, 'selfskip'); // v15 Uzdravení ocasu: nedává útoky
       const t = att + r, mg = skipA ? 0 : t - ydef; let d = Math.max(0, mg), ex = []; if (skipA) ex.push('karta nedává útoky');
@@ -355,6 +361,7 @@
     const A = side(a, b, ra), B = side(b, a, rb);
     const mit = (x, d) => { const c = x.card, n = [];
       if (d > 0 && fx1(c, 'immune')) { n.push('imunita'); d = 0; }
+      if (d > 0 && fx1(c, 'fortress')) { n.push('schovaný v ulitě'); d = 0; }
       if (d > 0 && fx1(c, 'block1')) { n.push('vodní štít'); d = 0; }
       if (d > 0 && fx1(c, 'dodge')) { n.push('uhnul'); d = 0; }
       const cap = fx1(c, 'cap'); if (cap && d > cap.v) { d = cap.v; n.push(`štít max ${cap.v}`); }
@@ -363,6 +370,8 @@
       const bf = has(c, 'buffer').reduce((s, f) => s + f.v, 0); if (bf && d > 0) { const z = Math.min(d, bf); d -= z; n.push(`pohltil ${z}`); }
       return [d, n]; };
     let [dB, nB] = mit(b, A.d), [dA, nA] = mit(a, B.d);
+    if (fx1(a.card, 'shellrest') && dB + A.drain + A.kiss <= 0 && dA > 0) { dA = 0; nA.push('nevyhrál – zůstal v krunýři'); } // v23 Únava
+    if (fx1(b.card, 'shellrest') && dA + B.drain + B.kiss <= 0 && dB > 0) { dB = 0; nB.push('nevyhrál – zůstal v krunýři'); }
     dB += A.drain + A.kiss; dA += B.drain + B.kiss; // vysátí i Polibek smrti obchází obranu
     if (fx1(a.card, 'win_nospec') && A.mg > 0) A.ex.push('soupeř omámen'); if (fx1(b.card, 'win_nospec') && B.mg > 0) B.ex.push('soupeř omámen');
     L.push(`⚔️ ${a.name}: ${a.atkName} ${a.atk} + karta ${a.card.name} ${a.card.att} + 🎲${ra} = <b>${A.t}</b> proti obraně ${A.ydef}${A.ex.length ? ' (' + A.ex.join(', ') + ')' : ''} → ${b.name} −<b>${dB}</b> ❤️${nB.length ? ' (' + nB.join(', ') + ')' : ''}`);
