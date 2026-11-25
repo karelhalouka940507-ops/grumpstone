@@ -601,7 +601,7 @@ function shopStock(key, slots) {
       const f = freeItems([t]).filter(i => !l.includes(i.id) && !used.has(itemType(i))); if (f.length) l.push(pick(f).id); });
     S.shops[key] = l;
   }
-  return S.shops[key] = S.shops[key].filter(id => !ownerOf(id));
+  return S.shops[key] = S.shops[key].filter(id => ITEM_BY_ID[id] && !ownerOf(id)); // v24: předměty odstraněné ze hry (stará uložená hra) se tiše zahodí
 }
 const shopView = (p, key, slots) => shopStock(key, slots).filter(id => tierVisible(p, ITEM_BY_ID[id].tier));
 const shopTake = (key, id) => { S.shops[key] = (S.shops[key] || []).filter(x => x !== id); };
@@ -793,6 +793,11 @@ function renderTrade() {
 }
 
 // Starý formát (sloty jako objekt) → v8: seznam nasazených (max 4, bez konfliktů), zbytek do brašny.
+// v24: starý stav (uložená hra / online) může obsahovat id předmětů, které už ve hře nejsou → zahodit, ať nic nespadne
+function sanitizeItems() { if (!S) return;
+  (S.players || []).forEach(p => { if (Array.isArray(p.equip)) p.equip = p.equip.filter(id => ITEM_BY_ID[id]); if (Array.isArray(p.bag)) p.bag = p.bag.filter(id => ITEM_BY_ID[id]); });
+  if (S.shops) Object.keys(S.shops).forEach(k => { if (Array.isArray(S.shops[k])) S.shops[k] = S.shops[k].filter(id => ITEM_BY_ID[id]); });
+  if (S.trade && !ITEM_BY_ID[S.trade.item]) S.trade = null; }
 function migrateGear(p) {
   if (!p.bag) p.bag = [];
   if (!Array.isArray(p.equip)) { const old = Object.values(p.equip || {}).filter((v, i, a) => v && a.indexOf(v) === i); p.equip = [];
@@ -1230,6 +1235,7 @@ function newGame() {
 
 // ---------- HRA ----------
 function startGame() {
+  sanitizeItems();
   S.players.forEach(p => { migrateGear(p); p.mount = mountOf(p); p.horse = !!p.mount; if (p.potions > POTION_MAX) p.potions = POTION_MAX; if (!p.bag) p.bag = []; if (!p.status) p.status = []; delete p.items; });
   S.bosses = S.bosses || {}; S.players.forEach(p => { if (!p.usedCards) p.usedCards = []; if (p.xp == null) p.xp = 0; if (!p.quests) p.quests = []; p.train = Object.assign({ boj: 0, obr: 0, int: 0, cha: 0 }, p.train); });
   show('screen-game');
@@ -2554,7 +2560,7 @@ function netGuestMsg(m) {
     setupTab = m.you; if (!$('screen-setup').classList.contains('active') && !(S && $('screen-game').classList.contains('active'))) show('screen-setup'); renderSetup(); return; }
   if (m.t === 'state') {
     const first = !S || !S.online || !$('screen-game').classList.contains('active');
-    S = JSON.parse(m.json); NET.ui = m.ui || {}; NET.onList = m.on || [];
+    S = JSON.parse(m.json); sanitizeItems(); NET.ui = m.ui || {}; NET.onList = m.on || [];
     if (first) { panelLoc = null; startGame(); }
     netSync();
   }
@@ -2904,5 +2910,5 @@ function bind() {
 
 bind(); initTitle();
 window.GS = { get NET() { return NET; }, NR, netMode, netRelayGuest, netHost, netJoin, netStart, netAddAI, netHandover, netLeave, netRemoveSeat, netIce, netNorm, isGuest, myTurnNet, itemAct, tradePropose, tradeAnswer, combatDrink, setNpcOn, BOSS_RESPAWN, bossRespawnTick, pendingRespawns, bossRespawnAt, finishBossFight, isAI, focusMatch, finishNpc, combatRoll, ROLE, HEROES, aiStep, aiRun, aiKick, aiSetSpeed, aiEstimate, aiActions, aiGoal, aiCfg, AI_DIFFS, get aiStats() { return aiStats; }, get aiDelay() { return aiDelay; }, useAbility, npcPick, npcRoll, npcDecide, npcQuest, overflowSell, setAiCount, setGameMode, get setup() { return setup; }, renderSetup, newGame, startGame, isCheat, CHEAT_WIN, CHEAT_PUNCH, rollPending, seaWhy, isMole, tunnelVia, COAL_PRICE, collectCoal, coalOpts, MOLE_WATER, LADJ, canSwim, SWIM_HEROES, heroById, WIN_GP, checkFinale, openFinale, startFinale, showVictory, declareWinner, chaOnlyWhy, SHIPS, SHIP_PRICE, shipOf, moveKind, boardShip, openShipModal, shipWhy, reachable, OFFSHORE, PORTS, MAINLAND, xpNeed, addXp, MAX_LEVEL, XP_PER_LEVEL, shopStock, shopView, SHOP_SLOTS, PRICE, TIER_LV, BM_PRICE, arenaDiff, npcDiff, MIN_DIE, mountName, isNatural, hasMount, MAX_PLAYERS, forceQuestStat: v => { FORCE_QSTAT = v; }, completeQuests, MOUNTS, stepsOf, openMountModal, closePanel, placeBoss: (id, loc, pi) => { S.bosses = S.bosses || {}; const b = BOSS_BY_ID[id]; S.bosses[id] = { sh: b.sh, hp: b.hp, dead: false, active: true, loc, for: pi == null ? null : pi, since: S.round }; renderAll(); }, bossRoundStart, spawnBossFor, activeBosses, tierForLevel, focusOfHero, unforce: () => { FORCE_ROLLS = []; }, CB, BOSS_BY_ID, bossState, bossAt, startBossFight, startPvp, pvpBlock, cardPool, atkKeyOf, closeCombat, forceCards: a => { FORCE_CARDS = a; }, forceLoot: v => { FORCE_LOOT = v; }, approachOf, heroCtx, combatChoose, EQUIP_MAX, BAG_MAX, PAWN, TRADE_MULT, loadoutProblem, itemType, unequipItem, sellItem, migrateGear, hasRoom, renderOverflow, swapOptions, force: a => FORCE_ROLLS.push(...a), forceSearch: id => { FORCE_SEARCH = id; }, ITEMS, ITEM_BY_ID, giveItem, equipItem, canWear, itemBonus, tradeBlock, openTrade, SEARCH, addStatus, openItem, makeDie, get S() { return S; }, ADJ, BY_ID, ABILITIES, NPC, moveTo, stay, endTurn, passTurn, heroStat, stat, combatKey, trainLock, makeQuest, distances, rollAbilities, renderAll, openPanel }; // pro testy // pro testy
-Object.assign(window.GS, { stealReady, stealOpts, STEAL_CD, isThief, isShell, fatigueAt, fatigueLeft, fatigueTick, startTurnStatus, FATIGUE_EVERY, FATIGUE_HP, finishBossFight }); // v22/v23 – pro testy
+Object.assign(window.GS, { sanitizeItems, stealReady, stealOpts, STEAL_CD, isThief, isShell, fatigueAt, fatigueLeft, fatigueTick, startTurnStatus, FATIGUE_EVERY, FATIGUE_HP, finishBossFight }); // v22/v23 – pro testy
 })();
