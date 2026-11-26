@@ -159,7 +159,19 @@
     // v18 King Rybák (Boj + Magie, stupeň III)
     b36: { pre: (F, C, L) => { if (C.R <= 2 && !F.hero.atSea) { C.rollMod -= 1; L.push('🐟 Smrdí od hlavy: rybí puch, tvůj hod −1.'); }
         if (F.boss.hp <= 15) { C.bAtk += 2; C.bDef += 1; C.notes.push('Jizva krále +2'); }
-        if (C.R === 3) C.attacks = [{ v: null }, { v: Math.ceil(F.boss.atk[2] / 2), die: 'x', noCard: true, label: 'Královský meč' }]; } }
+        if (C.R === 3) C.attacks = [{ v: null }, { v: Math.ceil(F.boss.atk[2] / 2), die: 'x', noCard: true, label: 'Královský meč' }]; } },
+    // v25 Hydra z vraku (Boj + Magie, stupeň III)
+    b37: { pre: (F, C, L) => { if (C.R === 1) { C.rollMod -= 1; L.push('🌊 Z hlubin vraku: stojíš po kolena ve vodě, hod −1.'); }
+        if (C.R === 3) C.attacks = [{ v: null }, { v: Math.ceil(F.boss.atk[2] / 2), die: 'x', noCard: true, label: 'Pátá hlava' }]; },
+      heroHit: (F, C, d, L) => { if (d >= 6 && !F.fl.cut) F.fl.cut = 1; return d; },
+      end: (F, C, L) => { if (F.fl.cut === 1 && F.boss.hp > 0) { F.fl.cut = 2; const o = Math.max(0, F.boss.sh); F.boss.sh = o + 3; L.push('🐍 Useknutá hlava doroste: hydra má +3 štíty.'); } } },
+    // v25 Tříoký koláčový skřet (Boj + Magie, stupeň I)
+    b38: { pre: (F, C, L) => { if (C.R === 1) { C.bDef += 1; C.notes.push('Třetí oko +1 obrana'); }
+        if (C.ad <= 2) { C.raw.push([1, 'Koště pekařky']); C.bossRaw += 1; L.push(`🧹 Pekařka s koštětem (osud ${C.ad}): rána pro tebe i pro skřeta (oba −1 ❤️).`); } } },
+    // v25 Trojhlavý vlk z močálů (Boj + Magie, stupeň III)
+    b39: { pre: (F, C, L) => { if (C.R === 1 && C.ad <= 2) { L.push(`👁️ Zelené oči (osud ${C.ad}):`); addSt(F, 'fear', L); }
+        if (F.boss.hp <= 15) { C.bAtk += 2; C.notes.push('Vytí v dešti +2'); }
+        if (C.R === 2) C.attacks = [{ v: null }, { v: Math.ceil(F.boss.atk[1] / 2), die: 'x', noCard: true, label: 'Třetí hlava' }]; } }
   };
   const specOn = F => !F.m.offNow;
   // v17: tvorové bez emocí – na Štěněcí nevinnost (Everett) nereagují: nemrtví, golem, chladnokrevní plazi

@@ -558,3 +558,5 @@ body:has(#combat:not(.hidden)) .ai-bar:not(.idle),body:has(#panel:not(.hidden)) 
 .pawn-fat{position:absolute;right:-9px;top:-9px;font-style:normal;font-size:12px;line-height:1;padding:1px 2px;border-radius:9px;background:#3b5bdb;border:1px solid #102060;box-shadow:0 1px 3px #000;animation:stealPulse 1.6s ease-in-out infinite}
 .pc-fat{font-size:.85em}
 .pc-fat.warn{font-weight:700;color:#ff8a65;text-shadow:0 0 4px #600}
+.npc-off{color:#a2321e;font-weight:bold} /* v25 charisma mimo obor */
+.mount-note{margin-top:6px;padding:5px 8px;border-radius:6px;background:#efe3c4;color:#4a3412;font-size:13px;border:1px dashed #b8955a} /* v25 mount: 2 akce lokací */

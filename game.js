@@ -24,7 +24,7 @@ const ASSETS = {
 };
 
 const MAP_W = 1600, MAP_H = 895, START = 'telgarion', MAX_HP = 10, STEPS = 2;
-// v10: mounti – s mountem 2 lokace + 1 krok navíc (na 3. lokaci nelze využít akci lokace). Volba mounta je jen kosmetická.
+// v10: mounti – s mountem 2 lokace + 1 krok navíc; v25: z 3 lokací nejvýš 2 akce lokací (i na 3. lokaci, když jednu vynechá). Volba mounta je jen kosmetická.
 const MOUNTS = {
   horse: { n: 'Kůň', img: 'assets/mounts/horse.webp', tok: 'assets/mounts/horse_t.webp' },
   ostrich: { n: 'Dvouhlavý pštros', img: 'assets/mounts/ostrich.webp', tok: 'assets/mounts/ostrich_t.webp' },
@@ -49,6 +49,11 @@ const SHIP_PRICE = 1;
 const stepsOf = p => STEPS + (hasMount(p) && !(S && S.noMount && S.players && p === cur()) ? 1 : 0);
 const MAXST = () => stepsOf(S && S.players ? cur() : null);
 const isMountStep = p => hasMount(p) && S.steps > STEPS;
+// v25 Kája: s mountem (3 pochody) smí hrdina za kolo vyhodnotit celkem 2 akce lokací – kdekoli ze 3 lokací, tedy i až na konci 3. pochodu,
+// pokud jednu cestou vynechal. Bez mounta beze změny (2 pochody = nejvýš 2 akce). Počítadlo S.usedN je ve stavu hry (uložení i online).
+const MOUNT_USES = 2;
+const mountTurn = () => MAXST() > STEPS;
+const usesLeft = () => Math.max(0, MOUNT_USES - (S.usedN || 0));
 const XP_PER_LEVEL = 10, MAX_LEVEL = 10; // v11: zkušenosti na level zdvojnásobeny (dřív 5·L), strop level 10
 
 // ---------- HRDINOVÉ ----------
@@ -235,12 +240,12 @@ const ABILITIES = {
     apply: p => { p.gold -= 2; p.potions += 1; return { log: `koupil u alchymisty léčivý lektvar (−2Z, nese ${p.potions}/${POTION_MAX})`, html: `⚗️ Alchymista ti zazátkuje baňku: <b>léčivý lektvar</b> (${p.potions}/${POTION_MAX}).<br><small>${POTION_RULE}</small>` }; } },
   prace: { name: 'Práce', img: 'prace2', text: 'Vesnice +2Z, město +3Z.',
     apply: (p, l) => { const v = l.type === 'city' ? 3 : 2; p.gold += v; return { log: `si poctivě vydělal prací (+${v}Z)`, html: `⛏️ Poctivá dřina: <b>+${v} zlaťáky</b>.` }; } },
-  mount: { name: 'Mount', img: 'mount', text: 'Koupit mounta za 10Z (až od levelu 3): kůň, dvouhlavý pštros, kanec nebo lední nosorožec. Každý tahem přidá 1 krok navíc (na 3. lokaci ale nelze využít akci lokace).', cityOnly: true, mountPick: true,
+  mount: { name: 'Mount', img: 'mount', text: 'Koupit mounta za 10Z (až od levelu 3): kůň, dvouhlavý pštros, kanec nebo lední nosorožec. Každý tah přidá 1 krok navíc: 3 lokace, z nich vyhodnotíš nejvýš 2 akce lokací – klidně i až na konci 3. pochodu.', cityOnly: true, mountPick: true,
     classLock: p => isMole(p) ? 'Krtek nejezdí, krtek kope. (Chadimpetro si mounta pořídit nemůže.)' : null,
     reqText: p => isMole(p) ? [[false, 'Krtek nejezdí, krtek kope']] : isNatural(p) ? [[false, 'Je sám svým mountem']] : [[p.level >= 3, 'level 3 a výš'], [p.gp >= 2, '2 Grumpstone body'], [p.gold >= MOUNT_PRICE, '10 zlaťáků']],
     req: p => isMole(p) ? 'Krtek nejezdí, krtek kope.' : isNatural(p) ? 'Je sám svým mountem.' : hasMount(p) ? `Mounta už máš (${MOUNTS[mountOf(p)].n}).` : (p.level < 3 || p.gp < 2 || p.gold < MOUNT_PRICE) ? 'Mount až od levelu 3 (a 2 Grumpstone body, 10Z).' : null,
     apply: (p, l, o) => { const m = MOUNTS[o] ? o : 'horse'; p.gold -= MOUNT_PRICE; p.mount = m; p.horse = true;
-      return { log: `koupil mounta: ${MOUNTS[m].n} (−${MOUNT_PRICE}Z)`, html: `<div class="mount-got"><img src="${MOUNTS[m].tok}" alt=""><div>Máš vlastního mounta: <b>${MOUNTS[m].n}</b>!<br><small>Každý tah můžeš ujít 2 lokace + 1 krok navíc (na 3. lokaci nelze využít akci lokace).</small></div></div>` }; } },
+      return { log: `koupil mounta: ${MOUNTS[m].n} (−${MOUNT_PRICE}Z)`, html: `<div class="mount-got"><img src="${MOUNTS[m].tok}" alt=""><div>Máš vlastního mounta: <b>${MOUNTS[m].n}</b>!<br><small>Každý tah můžeš ujít 2 lokace + 1 krok navíc. Z těch 3 lokací vyhodnotíš nejvýš 2 akce – druhou klidně až na konci 3. pochodu.</small></div></div>` }; } },
   zbrojmistr: { name: 'Zbrojmistr', icon: '⚔️', text: 'Trénink Boje a Obrany: 3Z → +1. Tankové trénují Obranu, assassini, lovec a Finn Boj, Chadimpetro Boj i Obranu. Jen +1 vlastnost za level (jeden placený trénink v levelu).', cityOnly: true,
     options: [{ id: 'boj', label: 'Boj' }, { id: 'obr', label: 'Obrana' }],
     classLock: p => (trainLock(p, 'boj') && trainLock(p, 'obr')) ? (isMain(p, 'obr') ? trainLock(p, 'obr') : trainLock(p, 'boj')) : null,
@@ -291,8 +296,11 @@ function coalOpts(p) { const n = isMole(p) ? (p.coal || 0) : 0; if (!n) return [
   const o = [{ id: 'coal:1', label: `Prodat 1 🪨 pytel uhlí +${COAL_PRICE}Z`, cls: 't-coal' }]; if (n > 1) o.push({ id: 'coal:all', label: `Prodat všechno uhlí (${n}× 🪨) +${n * COAL_PRICE}Z`, cls: 't-coal' }); return o; }
 function sellCoal(p, o) { const n = o === 'coal:all' ? (p.coal || 0) : 1, v = n * COAL_PRICE; p.coal -= n; p.gold += v;
   return { log: `prodal na tržišti ${n}× pytel uhlí (+${v}Z)`, html: `🪨 Kupec si promne zčernalé ruce: <b>${n}× pytel uhlí</b> za <b>${v}</b> zlaťáků.${p.coal ? ` Zbývá ti ${p.coal} 🪨.` : ''}<br><i>„Já nejsem lakomej. Já jenom vím, co má skutečnou cenu.“</i>` }; }
-function collectCoal(p) { if (!isMole(p) || p.coalRound === S.round) return; p.coalRound = S.round; p.coal = (p.coal || 0) + 1;
-  addLog(`🪨 ${p.name} cestou podzemím nasbíral pytel uhlí (má ${p.coal}).`); }
+// v25 Kája: Krtek byl přesílený – sběr uhlí snížen na polovinu: za kolo nakope půl pytle, celý pytel 🪨 tedy každé 2. kolo (p.coalHalf = rozkopaná půlka).
+function collectCoal(p) { if (!isMole(p) || p.coalRound === S.round) return; p.coalRound = S.round;
+  if (!p.coalHalf) { p.coalHalf = 1; addLog(`🪨 ${p.name} cestou podzemím nakopal půl pytle uhlí (celý pytel bude příští kolo; má ${p.coal || 0}).`); return; }
+  p.coalHalf = 0; p.coal = (p.coal || 0) + 1;
+  addLog(`🪨 ${p.name} dokopal pytel uhlí (má ${p.coal}).`); }
 // v17 Everett – Podvodník u kostek: v herně vždy +1 k hodu (podvádí). Výhra = 6Z (místo běžné výplaty 5Z, sázka 2Z platí), ale dostane přes hubu: −2 ❤️ (nikdy pod 1 – rána pěstí nezabíjí). Prohra jako obvykle.
 const CHEAT_HEROES = new Set(['everett']);
 // v22 Rhina – Krádež na tržišti: 1 předmět zdarma jednou za 3 kola; vybírá z nabídky, kterou vidí (oranžové od L3, fialové od L6).
@@ -1425,7 +1433,7 @@ function renderPlayers() {
       <div class="stats"><span title="Životy">❤️ ${p.hp}/${MAX_HP}</span><span title="Zlaťáky">🪙 ${p.gold}</span><span title="Karma (může být i záporná)" class="${p.karma < 0 ? 'neg' : ''}">☯️ ${p.karma}</span><span title="Level · zkušenosti${p.level >= MAX_LEVEL ? ' – maximální level' : ` (další level při ${xpNeed(p)})`}">⭐ ${p.level} <small class="xp">${p.level >= MAX_LEVEL ? 'MAX' : `(${p.xp || 0}/${xpNeed(p)} zk.)`}</small></span></div>
       <div class="hstats" title="Statistiky jsou prozatímní. Hlavní vlastnost (zvýrazněná): ${TRAIN_ALLOW[roleOf(p)].map(x => STAT_NAME[x]).join(', ')} – placený trénink 1× za level. Vedlejší rostou samy +1 každé 2 levely.">${['boj', 'obr', 'int', 'cha'].map(k => `<span class="${isMain(p, k) ? 'tr' : ''}">${isMain(p, k) ? '★' : ''}${STAT_IC[k]} ${STAT_NAME[k]} <b>${stat(p, k)}</b></span>`).join('')}${stat(p, 'spec') ? `<span class="tr">✦ Specializace <b>${stat(p, 'spec')}</b></span>` : ''}</div>
       <div class="hpbar"><i style="width:${p.hp / MAX_HP * 100}%"></i></div>
-      <div class="loc">📍 ${BY_ID[p.loc].name}${hasMount(p) ? ` · 🐾 ${mountName(p)}` : ''}${shipOf(p) ? ` · ⛵ ${SHIPS[shipOf(p)].n}` : ''}${stealBadge(p)}${fatigueBadge(p)}${isMole(p) ? ` · <span class="pc-coal" title="Pytle uhlí – prodej jen na Tržišti, ${COAL_PRICE}Z za pytel">🪨 <b>${p.coal || 0}</b></span>` : ''} · <span class="pc-gp${p.gp >= WIN_GP ? ' win' : ''}" title="Grumpstone body – cíl ${WIN_GP}">🔷 GB <b>${p.gp}</b>/${WIN_GP}</span>${p.finale ? ' <span class="pc-finale">🏁 Finální výzva</span>' : ''}</div>
+      <div class="loc">📍 ${BY_ID[p.loc].name}${hasMount(p) ? ` · 🐾 ${mountName(p)}` : ''}${shipOf(p) ? ` · ⛵ ${SHIPS[shipOf(p)].n}` : ''}${stealBadge(p)}${fatigueBadge(p)}${isMole(p) ? ` · <span class="pc-coal" title="Pytle uhlí – prodej jen na Tržišti, ${COAL_PRICE}Z za pytel; nový pytel každé 2. kolo">🪨 <b>${p.coal || 0}</b>${p.coalHalf ? '½' : ''}</span>` : ''} · <span class="pc-gp${p.gp >= WIN_GP ? ' win' : ''}" title="Grumpstone body – cíl ${WIN_GP}">🔷 GB <b>${p.gp}</b>/${WIN_GP}</span>${p.finale ? ' <span class="pc-finale">🏁 Finální výzva</span>' : ''}</div>
       ${tr ? `<div class="inv">Trénink: ${tr}</div>` : ''}
       ${p.intel.length ? `<div class="inv">🔎 ${p.intel.slice(-2).join('; ')}</div>` : ''}
       ${statusHTML(p)}${inventoryHTML(p, i === S.cur && !S.npc && !S.pending && !S.combat)}
@@ -1554,6 +1562,11 @@ function spendUse(aid) { // po využití schopnosti lokace: obvykle konec, při 
     if (S.dayLeft > 0) { S.canUse = true; S.lock = null; return; } }
   S.canUse = false; S.lock = 'used';
 }
+function mountNote() {
+  const left = usesLeft(), step = S.steps, max = MAXST();
+  if (step > STEPS) return `<div class="mount-note">🐾 Krok navíc na mountovi (${mountName(cur())}): akci lokace máš ještě k dispozici – <b>vyhodnoť ji tady</b> (${(S.usedN || 0) + 1}/${MOUNT_USES}).</div>`;
+  return `<div class="mount-note">🐾 S mountem smíš za kolo vyhodnotit <b>${MOUNT_USES} akce lokací</b> (zbývá ${left}). ` + (step < max ? `Můžeš ji využít tady, nebo <b>pokračovat dál</b> a vyhodnotit ji až na další lokaci (i na konci ${max}. pochodu).` : '') + '</div>';
+}
 function sunBurn(p) {
   if (!isDayFor(p) || p.sunRound === S.round) return '';
   p.sunRound = S.round; const b = p.hp; p.hp = Math.max(1, p.hp - 1);
@@ -1574,8 +1587,8 @@ function moveTo(id) {
     addLog(`🛶 ${p.name} nemá na loď – nouzově stopuje obchodní loď: ${from.name} → ${BY_ID[id].name}. Zdržení: pochody pro tento tah končí${S.acted ? ' a akci tu už nevyužije' : ''}.`);
   } else {
   const extra = isMountStep(p);
-  if (extra) { S.canUse = false; S.lock = 'mount'; }
-  addLog(`${p.name} ${kind === 'ship' ? `se plaví na lodi ${SHIPS[shipOf(p)].n}` : kind === 'tunnel' ? `🕳️ se prokopal podzemím pod lokací ${BY_ID[tunnelVia({ hero: p.hero, loc: from.id }, id)].name}` : kind === 'swim' ? `🐸🌊 plave přes vodu${extra ? ` (krok navíc s mountem – ${mountName(p)} plave s ním)` : ''}` : extra ? `jede na mountovi (${mountName(p)})` : 'pochoduje'}: ${from.name} → ${BY_ID[id].name} (pochod ${S.steps}/${MAXST()})${extra ? ' – krok navíc s mountem, akci lokace tu nelze využít' : ''}.`);
+  if (extra && !usesLeft()) { S.canUse = false; S.lock = 'mount'; }
+  addLog(`${p.name} ${kind === 'ship' ? `se plaví na lodi ${SHIPS[shipOf(p)].n}` : kind === 'tunnel' ? `🕳️ se prokopal podzemím pod lokací ${BY_ID[tunnelVia({ hero: p.hero, loc: from.id }, id)].name}` : kind === 'swim' ? `🐸🌊 plave přes vodu${extra ? ` (krok navíc s mountem – ${mountName(p)} plave s ním)` : ''}` : extra ? `jede na mountovi (${mountName(p)})` : 'pochoduje'}: ${from.name} → ${BY_ID[id].name} (pochod ${S.steps}/${MAXST()})${extra ? (S.canUse ? ' – krok navíc s mountem, akci lokace tu ještě může využít (2 za kolo)' : ' – krok navíc s mountem, obě akce lokací už využil') : ''}.`);
   }
   const sb = sunBurn(p);
   const qd = completeQuests(p);
@@ -1605,7 +1618,7 @@ function passTurn() {
   collectCoal(cur()); // v16: Chadimpetro – pytel uhlí za každé kolo (na konci jeho tahu)
   S.cur++;
   if (S.cur >= S.players.length) { S.cur = 0; S.round++; bossRoundStart(); }
-  S.steps = 0; S.noMount = false; S.acted = false; S.hitched = false; S.canUse = false; S.lock = 'start'; lastResult = null;
+  S.steps = 0; S.usedN = 0; S.noMount = false; S.acted = false; S.hitched = false; S.canUse = false; S.lock = 'start'; lastResult = null;
   S.dayStay = false; S.dayLeft = 0; S.dayDone = [];
   addLog(`Kolo ${S.round} – na tahu ${cur().name}.`, true);
   if (isDayFor(cur())) addLog(`${DAY_NOTE.replace('Olgrich', cur().name + ' (Olgrich)')}.`);
@@ -1665,9 +1678,9 @@ function npcOptions(c, p) {
 function renderNpcChoices() {
   const c = NPC_BY_ID[S.npc.id], p = cur(), box = $('npc-choices'); box.innerHTML = '';
   npcOptions(c, p).forEach(o => {
-    const k = NPC_KIND[o.kind], sk = npcStatKey(p, o.kind), st = stat(p, sk), diff = npcDiff(p, c.is_boss || o.boss);
+    const k = NPC_KIND[o.kind], d = npcDice(p, o, c), sk = d.sk, st = d.st, diff = d.diff;
     const txt = (o.key === 'charisma' && o.text_female && FEMALE.has(p.hero)) ? o.text_female : o.text;
-    const how = o.mode === 'dice' ? `🎲 Hod kostkou: d6 + ${STAT_NAME[sk]} ${st}${stat(p, 'spec') ? ' + Spec. ' + stat(p, 'spec') : ''}${p.blessing ? ' + 1 požehnání' : ''} ≥ ${diff}` : '🤔 Rozhodnutí: vybereš ze 2 možností';
+    const how = o.mode === 'dice' ? `🎲 Hod kostkou: d6 + ${STAT_NAME[sk]} ${st}${d.sp ? ' + Spec. ' + d.sp : ''}${p.blessing ? ' + 1 požehnání' : ''} ≥ ${diff}${d.off ? ' <span class="npc-off">(mimo obor: +1, bez Spec.)</span>' : ''}` : '🤔 Rozhodnutí: vybereš ze 2 možností';
     const b = el('button', 'npc-ch ' + o.kind + (o.extra ? ' extra' : '') + (S.npc.pick === o.key ? ' sel' : ''),
       `<div class="npc-ch-h">${k.ic} ${o.extra ? 'Zvláštní volba – ' + k.n : k.n}</div><div class="npc-ch-t">${txt}</div><div class="npc-ch-f">${how}${o.quest ? '<br>📜 Po úspěchu lze přijmout cestovní úkol' : ''}</div>`);
     b.dataset.key = o.key; b.dataset.mode = o.mode;
@@ -1678,7 +1691,11 @@ function renderNpcChoices() {
 }
 // ---- NPC akce (volá je UI i počítačový hráč) ----
 const npcCur = () => { const c = NPC_BY_ID[S.npc.id]; return { c, p: cur(), o: S.npc.pick ? npcOptions(c, cur()).find(x => x.key === S.npc.pick) : null }; };
-function npcDice(p, o, c) { const sk = npcStatKey(p, o.kind); return { sk, st: stat(p, sk), bl: p.blessing ? 1 : 0, diff: npcDiff(p, c.is_boss || o.boss), sp: stat(p, 'spec'), fe: hasStatus(p, 'fear') ? 1 : 0 }; }
+// v25 Kája: bojové postavy splnily charismatický úkol příliš snadno (Specializace z předmětů se přičítala i k cizí vlastnosti, assassini mají Charismu 2).
+// Charisma mimo obor (Charisma není hlavní vlastnost hrdiny): Specializace se nepočítá a obtížnost +1 (CHA_OFF).
+const CHA_OFF = 1;
+const chaOff = (p, o) => o.kind === 'charisma' && !isMain(p, 'cha');
+function npcDice(p, o, c) { const sk = npcStatKey(p, o.kind), off = chaOff(p, o); return { sk, off, st: stat(p, sk), bl: p.blessing ? 1 : 0, diff: npcDiff(p, c.is_boss || o.boss) + (off ? CHA_OFF : 0), sp: off ? 0 : stat(p, 'spec'), fe: hasStatus(p, 'fear') ? 1 : 0 }; }
 function npcPick(key) { if (!S.npc || S.npc.pick || S.npc.res) return; S.npc.pick = key; save(); renderNpcChoices(); renderNpcStage(); }
 function npcRoll(v) { if (!S.npc || S.npc.res) return; const { c, p, o } = npcCur(); if (!o || o.mode !== 'dice') return; const d = npcDice(p, o, c); useFear(p); npcRollDone(o, d.st + d.sp + d.bl - d.fe, d.diff, v); }
 function npcDecide(i) { if (!S.npc || S.npc.res) return; const { o } = npcCur(); if (!o || o.mode === 'dice') return; const op = o.options[i]; npcResolve(o, op.result, op.karma || 0, `<div class="npc-picked">Zvolil jsi: <i>${op.label}</i></div>${op.outcome}`, false); }
@@ -1689,9 +1706,8 @@ function renderNpcStage() {
   if (!S.npc.pick) { stg.innerHTML = '<div class="npc-hint">Vyber, jak úkol vyřešíš: <b>Boj</b>, <b>Charisma</b> nebo <b>Magie</b>.</div>'; return; }
   const o = npcOptions(c, p).find(x => x.key === S.npc.pick);
   if (o.mode === 'dice') {
-    const sk = npcStatKey(p, o.kind), st = stat(p, sk), bl = p.blessing ? 1 : 0, diff = npcDiff(p, c.is_boss || o.boss);
-    const sp = stat(p, 'spec'), fe = hasStatus(p, 'fear') ? 1 : 0;
-    stg.innerHTML = `<div class="npc-hint">Potřebuješ <b>${diff}</b> nebo víc: d6 + ${STAT_NAME[sk]} <b>${st}</b>${sp ? ` + Specializace <b>${sp}</b>` : ''}${bl ? ' + <b>1</b> (požehnání ze svatyně)' : ''}${fe ? ' − <b>1</b> (strach)' : ''}.<br><small>Padne-li 6, uspěješ vždy; 1 nebo 2 je vždy neúspěch. Obtížnost roste s levelem (+1 za level).</small></div>`;
+    const { sk, st, bl, diff, sp, fe, off } = npcDice(p, o, c);
+    stg.innerHTML = `<div class="npc-hint">Potřebuješ <b>${diff}</b> nebo víc: d6 + ${STAT_NAME[sk]} <b>${st}</b>${sp ? ` + Specializace <b>${sp}</b>` : ''}${bl ? ' + <b>1</b> (požehnání ze svatyně)' : ''}${fe ? ' − <b>1</b> (strach)' : ''}.${off ? '<br><small class="npc-off">💬 Charisma mimo tvůj obor: obtížnost +1 a Specializace z předmětů se nepočítá.</small>' : ''}<br><small>Padne-li 6, uspěješ vždy; 1 nebo 2 je vždy neúspěch. Obtížnost roste s levelem (+1 za level).</small></div>`;
     stg.appendChild(makeDie({ id: 'npc-roll', wrapId: 'npc-die', label: '👆 Klepni na kostku a hoď!', onRoll: v => npcRoll(v) }));
   } else {
     stg.appendChild(el('div', 'npc-hint', 'Rozhodni se – výsledek uvidíš až po volbě:'));
@@ -1860,9 +1876,10 @@ function renderPanel() {
   let usable = false;
   if (isHere) {
     if (S.canUse) { usable = true; stEl.className = 'panel-status ok'; stEl.innerHTML = isSettlement(loc) ? 'Vyber jednu schopnost lokace a potvrď zeleným ✔.' : 'Můžeš toto místo prozkoumat – vyber kartu a potvrď ✔.';
+      if (!S.dayStay && mountTurn()) stEl.innerHTML += mountNote();
       if (S.dayStay) stEl.innerHTML = `☀️ <b>Přečkáváš den</b> – můžeš tu využít ještě <b>${S.dayLeft}</b> ${S.dayLeft === 1 ? 'schopnost' : 'různé schopnosti'} lokace${(S.dayDone || []).length ? ' (jinou než předtím)' : ''}.`; }
     else if (S.lock === 'start' && isDayFor(p)) { stEl.className = 'panel-status day'; stEl.innerHTML = `${DAY_NOTE}.<br><small>„☀️ Přečkat den tady“ = vzdáš se pochodů a využiješ tu 2 různé schopnosti. Pochod nebo plavba stojí 1 ❤️ (jednou za kolo).</small>`; }
-    else if (S.lock === 'mount') { stEl.className = 'panel-status lock'; stEl.innerHTML = `🐾 Sem jsi dojel krokem navíc na mountovi (${mountName(cur())}) – <b>akci lokace tu nelze využít</b>.`; }
+    else if (S.lock === 'mount') { stEl.className = 'panel-status lock'; stEl.innerHTML = `🐾 Sem jsi dojel krokem navíc na mountovi (${mountName(cur())}) – <b>obě akce lokací (${MOUNT_USES}/${MOUNT_USES}) jsi v tomto kole už využil</b>.`; }
     else if (S.lock === 'hitch') { stEl.className = 'panel-status lock'; stEl.innerHTML = '🛶 Nouzový stop = zdržení. Akci lokace jsi v tomto tahu už využil, tady ji použít nelze.'; }
     else if (S.lock === 'start') { stEl.className = 'panel-status lock'; stEl.innerHTML = 'Tah začínáš tady – schopnost lokace použiješ až po pochodu na další lokaci.'; }
     else if (S.dayStay) { stEl.className = 'panel-status day'; stEl.innerHTML = `☀️ Den přečkán – obě schopnosti lokace jsi využil (${(S.dayDone || []).map(x => x === 'pvp' ? 'souboj' : (ABILITIES[x] || {}).name || x).join(' + ')}). Ukonči tah.`; }
@@ -1913,7 +1930,7 @@ function renderPanel() {
     else if (cl || (a.req && !opts && a.req(p, loc, null))) c.classList.add('blocked');
     if (selAbility === aid) c.classList.add('sel');
     c.onclick = () => {
-      if (!usable) { toast(isHere ? (S.lock === 'start' ? 'Nejdřív vyraž na pochod.' : S.lock === 'mount' ? 'Na 3. lokaci (krok navíc s mountem) nelze využít akci lokace.' : 'Tady už jsi schopnost využil – pokračuj v pochodu.') : 'Schopnost lze použít jen tam, kde stojíš.'); return; }
+      if (!usable) { toast(isHere ? (S.lock === 'start' ? 'Nejdřív vyraž na pochod.' : S.lock === 'mount' ? 'S mountem vyhodnotíš za kolo nejvýš 2 akce lokací – obě už jsi využil.' : 'Tady už jsi schopnost využil – pokračuj v pochodu.') : 'Schopnost lze použít jen tam, kde stojíš.'); return; }
       if (selAbility !== aid) { selAbility = aid; selOpt = null; } renderPanel();
     };
     box.appendChild(c);
@@ -1952,6 +1969,10 @@ function renderPanel() {
   }
   if (isHere && usable) S.players.forEach(q => { if (q === p || q.loc !== loc.id) return; const why = pvpBlock(p, q);
     const b = el('button', 'btn btn-dark pvp-btn', `⚔️ Souboj s ${q.name}`); b.dataset.pvp = S.players.indexOf(q); b.disabled = !!why; if (why) b.title = why; b.onclick = () => startPvp(p, q); act.appendChild(b); });
+  if (isHere && usable && !S.dayStay && mountTurn() && S.steps < MAXST()) { // v25: volba – vyhodnotit tady, nebo akci nechat na další lokaci
+    const e = el('button', 'btn btn-gold', '✔ Vyhodnotit lokaci tady'); e.id = 'btn-eval-here'; e.onclick = () => { const g = document.getElementById('panel-cards'); if (g) g.scrollIntoView({ block: 'nearest' }); toast('Vyber schopnost lokace a potvrď zeleným ✔.'); }; act.appendChild(e);
+    const c = el('button', 'btn btn-dark', `➡️ Pokračovat dál (akci využiješ na ${S.steps + 1}. lokaci)`); c.id = 'btn-skip-use'; c.onclick = () => { closePanel(); toast(`🐾 Akce lokace zůstává – vyber na mapě, kam pojedeš (pochod ${S.steps + 1}/${MAXST()}).`); }; act.appendChild(c);
+  }
   if (isHere && S.steps < MAXST() && !usable) {
     const b = el('button', 'btn btn-gold', 'Pokračovat v pochodu'); b.onclick = () => closePanel(); act.appendChild(b);
   }
@@ -1981,7 +2002,7 @@ function confirmAbility() {
   const a = ABILITIES[selAbility];
   if ((a.classLock && a.classLock(p)) || (a.req && a.req(p, loc, selOpt))) return;
   if (a.mountPick && !mountChoice) { openMountModal(); return; }
-  S.acted = true;
+  S.acted = true; S.usedN = (S.usedN || 0) + 1;
   if (a.combat) { const b = bossAt(loc.id); if (!b) return; spendUse(selAbility); selAbility = null; selOpt = null; lastResult = null; renderAll(); startBossFight(p, b); return; }
   if (a.dice) {
     spendUse(selAbility); S.pending = { ab: selAbility, loc: loc.id, opt: selOpt, stage: 'main' };
@@ -2285,7 +2306,8 @@ function aiStep() {
     aiSkipKey = key;
     const acts = aiActions(p), best = acts[0];
     const marchLeft = S.steps < MAXST();
-    if (best && (best.v >= 2.5 || !marchLeft || S.dayStay)) {
+    const keep = marchLeft && !S.dayStay && mountTurn() && usesLeft() === 1 && S.steps < MAXST(); // v25: poslední akci s mountem šetří, je-li tady slabá
+    if (best && (best.v >= (keep ? 3.5 : 2.5) || !marchLeft || S.dayStay)) {
       if (best.aid === 'pvp') { aiLog(`${p.name} vyzývá vedoucího hráče ${S.players[best.q].name} na souboj!`); aiStats.pvp++; startPvp(p, S.players[best.q]); return 'pvp-start'; }
       aiLog(`${p.name} (${BY_ID[p.loc].name}): ${ABILITIES[best.aid].name}${best.opt && !String(best.opt).startsWith('coal') ? '' : ''}.`);
       if (best.aid === 'boss') aiStats.fights++;
@@ -2909,6 +2931,6 @@ function bind() {
 }
 
 bind(); initTitle();
-window.GS = { get NET() { return NET; }, NR, netMode, netRelayGuest, netHost, netJoin, netStart, netAddAI, netHandover, netLeave, netRemoveSeat, netIce, netNorm, isGuest, myTurnNet, itemAct, tradePropose, tradeAnswer, combatDrink, setNpcOn, BOSS_RESPAWN, bossRespawnTick, pendingRespawns, bossRespawnAt, finishBossFight, isAI, focusMatch, finishNpc, combatRoll, ROLE, HEROES, aiStep, aiRun, aiKick, aiSetSpeed, aiEstimate, aiActions, aiGoal, aiCfg, AI_DIFFS, get aiStats() { return aiStats; }, get aiDelay() { return aiDelay; }, useAbility, npcPick, npcRoll, npcDecide, npcQuest, overflowSell, setAiCount, setGameMode, get setup() { return setup; }, renderSetup, newGame, startGame, isCheat, CHEAT_WIN, CHEAT_PUNCH, rollPending, seaWhy, isMole, tunnelVia, COAL_PRICE, collectCoal, coalOpts, MOLE_WATER, LADJ, canSwim, SWIM_HEROES, heroById, WIN_GP, checkFinale, openFinale, startFinale, showVictory, declareWinner, chaOnlyWhy, SHIPS, SHIP_PRICE, shipOf, moveKind, boardShip, openShipModal, shipWhy, reachable, OFFSHORE, PORTS, MAINLAND, xpNeed, addXp, MAX_LEVEL, XP_PER_LEVEL, shopStock, shopView, SHOP_SLOTS, PRICE, TIER_LV, BM_PRICE, arenaDiff, npcDiff, MIN_DIE, mountName, isNatural, hasMount, MAX_PLAYERS, forceQuestStat: v => { FORCE_QSTAT = v; }, completeQuests, MOUNTS, stepsOf, openMountModal, closePanel, placeBoss: (id, loc, pi) => { S.bosses = S.bosses || {}; const b = BOSS_BY_ID[id]; S.bosses[id] = { sh: b.sh, hp: b.hp, dead: false, active: true, loc, for: pi == null ? null : pi, since: S.round }; renderAll(); }, bossRoundStart, spawnBossFor, activeBosses, tierForLevel, focusOfHero, unforce: () => { FORCE_ROLLS = []; }, CB, BOSS_BY_ID, bossState, bossAt, startBossFight, startPvp, pvpBlock, cardPool, atkKeyOf, closeCombat, forceCards: a => { FORCE_CARDS = a; }, forceLoot: v => { FORCE_LOOT = v; }, approachOf, heroCtx, combatChoose, EQUIP_MAX, BAG_MAX, PAWN, TRADE_MULT, loadoutProblem, itemType, unequipItem, sellItem, migrateGear, hasRoom, renderOverflow, swapOptions, force: a => FORCE_ROLLS.push(...a), forceSearch: id => { FORCE_SEARCH = id; }, ITEMS, ITEM_BY_ID, giveItem, equipItem, canWear, itemBonus, tradeBlock, openTrade, SEARCH, addStatus, openItem, makeDie, get S() { return S; }, ADJ, BY_ID, ABILITIES, NPC, moveTo, stay, endTurn, passTurn, heroStat, stat, combatKey, trainLock, makeQuest, distances, rollAbilities, renderAll, openPanel }; // pro testy // pro testy
+window.GS = { get NET() { return NET; }, npcDice, CHA_OFF, MOUNT_USES, usesLeft, NR, netMode, netRelayGuest, netHost, netJoin, netStart, netAddAI, netHandover, netLeave, netRemoveSeat, netIce, netNorm, isGuest, myTurnNet, itemAct, tradePropose, tradeAnswer, combatDrink, setNpcOn, BOSS_RESPAWN, bossRespawnTick, pendingRespawns, bossRespawnAt, finishBossFight, isAI, focusMatch, finishNpc, combatRoll, ROLE, HEROES, aiStep, aiRun, aiKick, aiSetSpeed, aiEstimate, aiActions, aiGoal, aiCfg, AI_DIFFS, get aiStats() { return aiStats; }, get aiDelay() { return aiDelay; }, useAbility, npcPick, npcRoll, npcDecide, npcQuest, overflowSell, setAiCount, setGameMode, get setup() { return setup; }, renderSetup, newGame, startGame, isCheat, CHEAT_WIN, CHEAT_PUNCH, rollPending, seaWhy, isMole, tunnelVia, COAL_PRICE, collectCoal, coalOpts, MOLE_WATER, LADJ, canSwim, SWIM_HEROES, heroById, WIN_GP, checkFinale, openFinale, startFinale, showVictory, declareWinner, chaOnlyWhy, SHIPS, SHIP_PRICE, shipOf, moveKind, boardShip, openShipModal, shipWhy, reachable, OFFSHORE, PORTS, MAINLAND, xpNeed, addXp, MAX_LEVEL, XP_PER_LEVEL, shopStock, shopView, SHOP_SLOTS, PRICE, TIER_LV, BM_PRICE, arenaDiff, npcDiff, MIN_DIE, mountName, isNatural, hasMount, MAX_PLAYERS, forceQuestStat: v => { FORCE_QSTAT = v; }, completeQuests, MOUNTS, stepsOf, openMountModal, closePanel, placeBoss: (id, loc, pi) => { S.bosses = S.bosses || {}; const b = BOSS_BY_ID[id]; S.bosses[id] = { sh: b.sh, hp: b.hp, dead: false, active: true, loc, for: pi == null ? null : pi, since: S.round }; renderAll(); }, bossRoundStart, spawnBossFor, activeBosses, tierForLevel, focusOfHero, unforce: () => { FORCE_ROLLS = []; }, CB, BOSS_BY_ID, bossState, bossAt, startBossFight, startPvp, pvpBlock, cardPool, atkKeyOf, closeCombat, forceCards: a => { FORCE_CARDS = a; }, forceLoot: v => { FORCE_LOOT = v; }, approachOf, heroCtx, combatChoose, EQUIP_MAX, BAG_MAX, PAWN, TRADE_MULT, loadoutProblem, itemType, unequipItem, sellItem, migrateGear, hasRoom, renderOverflow, swapOptions, force: a => FORCE_ROLLS.push(...a), forceSearch: id => { FORCE_SEARCH = id; }, ITEMS, ITEM_BY_ID, giveItem, equipItem, canWear, itemBonus, tradeBlock, openTrade, SEARCH, addStatus, openItem, makeDie, get S() { return S; }, ADJ, BY_ID, ABILITIES, NPC, moveTo, stay, endTurn, passTurn, heroStat, stat, combatKey, trainLock, makeQuest, distances, rollAbilities, renderAll, openPanel }; // pro testy // pro testy
 Object.assign(window.GS, { sanitizeItems, stealReady, stealOpts, STEAL_CD, isThief, isShell, fatigueAt, fatigueLeft, fatigueTick, startTurnStatus, FATIGUE_EVERY, FATIGUE_HP, finishBossFight }); // v22/v23 – pro testy
 })();
